@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, Link } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
+import { useToast } from "../context/ToastContext";
+import { CreditCard } from "lucide-react";
 
 import { getGroup, addMember } from "../api/groups";
 import { listMembers } from "../api/members";
@@ -24,6 +27,9 @@ function money(minor) {
 export default function Group() {
   const { id } = useParams();
   const groupId = id;
+  const { user: authUser } = useAuth();
+  const currentUserId = authUser?.id ?? "";
+  const toast = useToast();
 
   const [group, setGroup] = useState(null);
   const [members, setMembers] = useState([]);
@@ -32,14 +38,13 @@ export default function Group() {
   const [activity, setActivity] = useState([]);
 
   const [inviteEmail, setInviteEmail] = useState("");
-  const [msg, setMsg] = useState("");
-  const [err, setErr] = useState("");
 
   // Add expense form
   const [title, setTitle] = useState("");
   const [amount, setAmount] = useState("");
   const [paidBy, setPaidBy] = useState("");
   const [participants, setParticipants] = useState([]);
+  const [category, setCategory] = useState("");
 
   // Split type + maps
   const [splitType, setSplitType] = useState("equal"); // equal|exact|percent
@@ -200,13 +205,10 @@ export default function Group() {
   async function saveSettlementEdit() {
     if (!editingSettlementId) return;
 
-    setErr("");
-    setMsg("");
-
     const amt = parseNum(editSetAmount);
-    if (!editSetFrom || !editSetTo) return setErr("Select from/to users");
-    if (editSetFrom === editSetTo) return setErr("From and To cannot be same");
-    if (!Number.isFinite(amt) || amt <= 0) return setErr("Amount must be > 0");
+    if (!editSetFrom || !editSetTo) return toast.error("Select from/to users");
+    if (editSetFrom === editSetTo) return toast.error("From and To cannot be same");
+    if (!Number.isFinite(amt) || amt <= 0) return toast.error("Amount must be > 0");
 
     const sid = editingSettlementId;
 
@@ -217,7 +219,7 @@ export default function Group() {
         amount: amt,
       });
 
-      setMsg("Settlement updated ✅");
+      toast.success("Settlement updated ✅");
       resetSettlementEditState();
 
       await refreshAll();
@@ -227,7 +229,7 @@ export default function Group() {
       const latest = (settlements ?? []).find((x) => x.id === sid) || null;
       setSelectedSettlement(latest);
     } catch (e) {
-      setErr(e?.message ?? String(e));
+      toast.error(e?.message ?? String(e));
     }
   }
 
@@ -235,24 +237,20 @@ export default function Group() {
     const ok = window.confirm("Delete this settlement? This cannot be undone.");
     if (!ok) return;
 
-    setErr("");
-    setMsg("");
-
     try {
       await deleteSettlement(groupId, settlementId);
 
       if (selectedSettlementId === settlementId) closeSettlementDrawer();
 
-      setMsg("Settlement deleted ✅");
+      toast.success("Settlement deleted ✅");
       await refreshAll();
     } catch (e) {
-      setErr(e?.message ?? String(e));
+      toast.error(e?.message ?? String(e));
     }
   }
 
   // ===== Refresh all =====
   async function refreshAll() {
-    setErr("");
 
     const [g, mem, exp, bal, act, sets] = await Promise.all([
       getGroup(groupId),
@@ -314,7 +312,7 @@ export default function Group() {
   }, [paidBy]);
 
   useEffect(() => {
-    refreshAll().catch((e) => setErr(e?.message ?? String(e)));
+    refreshAll().catch((e) => toast.error(e?.message ?? String(e)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [groupId]);
 
@@ -328,22 +326,20 @@ export default function Group() {
   // ===== Member =====
   async function onAddMember(e) {
     e.preventDefault();
-    setErr("");
-    setMsg("");
 
     const email = inviteEmail.trim().toLowerCase();
     if (!email) {
-      setErr("Please enter a valid email address");
+      toast.error("Please enter a valid email address");
       return;
     }
 
     try {
       await addMember(groupId, email);
-      setMsg("Member added!");
+      toast.success("Member added!");
       setInviteEmail("");
       await refreshAll();
     } catch (e2) {
-      setErr(e2?.message ?? String(e2));
+      toast.error(e2?.message ?? String(e2));
     }
   }
 
@@ -418,21 +414,18 @@ export default function Group() {
   async function saveEdit() {
     if (!selectedExpenseId || !selectedExpense) return;
 
-    setErr("");
-    setMsg("");
-
     const amt = parseNum(editAmount);
     const st = String(editSplitType || "equal").toLowerCase();
     const payerId = String(selectedExpense.paid_by);
 
-    if (!editTitle.trim()) return setErr("Title is required");
-    if (!Number.isFinite(amt) || amt <= 0) return setErr("Amount must be > 0");
+    if (!editTitle.trim()) return toast.error("Title is required");
+    if (!Number.isFinite(amt) || amt <= 0) return toast.error("Amount must be > 0");
 
     const selected = editParticipants.map(String);
 
-    // ✅ For ALL split types, enforce subset rules
-    if (selected.length < 2) return setErr("Select at least 2 participants");
-    if (!selected.includes(payerId)) return setErr("Payer must be included in participants");
+    // For ALL split types, enforce subset rules
+    if (selected.length < 2) return toast.error("Select at least 2 participants");
+    if (!selected.includes(payerId)) return toast.error("Payer must be included in participants");
 
     const payload = { title: editTitle.trim(), amount: amt, split_type: st };
 
@@ -447,13 +440,13 @@ export default function Group() {
         });
 
         const positiveCount = splits.filter((s) => s.amount > 0).length;
-        if (positiveCount === 0) return setErr("At least one split amount must be > 0");
+        if (positiveCount === 0) return toast.error("At least one split amount must be > 0");
 
         const amtMinor = toMinor(amt);
         const sumMinor = splits.reduce((acc, s) => acc + toMinor(s.amount), 0);
 
         if (sumMinor !== amtMinor) {
-          return setErr(
+          return toast.error(
             `Exact split total must equal ₹${amt.toFixed(2)} (got ₹${(sumMinor / 100).toFixed(2)})`
           );
         }
@@ -467,25 +460,25 @@ export default function Group() {
         });
 
         const positiveCount = percents.filter((p) => p.percent > 0).length;
-        if (positiveCount === 0) return setErr("At least one percent must be > 0");
+        if (positiveCount === 0) return toast.error("At least one percent must be > 0");
 
         const sumP = percents.reduce((acc, p) => acc + p.percent, 0);
-        if (Math.abs(sumP - 100) > 0.01) return setErr(`Percents must total 100 (got ${sumP.toFixed(2)})`);
+        if (Math.abs(sumP - 100) > 0.01) return toast.error(`Percents must total 100 (got ${sumP.toFixed(2)})`);
 
         payload.percents = percents;
       } else {
-        return setErr("Invalid split type");
+        return toast.error("Invalid split type");
       }
 
       await updateExpense(groupId, selectedExpenseId, payload);
 
-      setMsg("Expense updated ✅");
+      toast.success("Expense updated ✅");
       setIsEditing(false);
 
       await refreshAll();
       await openExpense(selectedExpenseId);
     } catch (e2) {
-      setErr(e2?.message ?? String(e2));
+      toast.error(e2?.message ?? String(e2));
     }
   }
 
@@ -495,35 +488,30 @@ export default function Group() {
     const ok = window.confirm("Delete this expense? This cannot be undone.");
     if (!ok) return;
 
-    setErr("");
-    setMsg("");
-
     try {
       await deleteExpense(groupId, selectedExpenseId);
-      setMsg("Expense deleted ✅");
+      toast.success("Expense deleted ✅");
       closeExpenseDrawer();
       await refreshAll();
     } catch (e2) {
-      setErr(e2?.message ?? String(e2));
+      toast.error(e2?.message ?? String(e2));
     }
   }
 
   async function onAddExpense(e) {
     e.preventDefault();
-    setErr("");
-    setMsg("");
 
     const amt = parseNum(amount);
     const payerId = String(paidBy);
 
-    if (!title.trim()) return setErr("Title is required");
-    if (!Number.isFinite(amt) || amt <= 0) return setErr("Amount must be > 0");
-    if (!payerId) return setErr("Select who paid");
+    if (!title.trim()) return toast.error("Title is required");
+    if (!Number.isFinite(amt) || amt <= 0) return toast.error("Amount must be > 0");
+    if (!payerId) return toast.error("Select who paid");
 
     const selected = participants.map(String);
 
-    if (selected.length < 2) return setErr("Select at least 2 participants");
-    if (!selected.includes(payerId)) return setErr("Payer must be included in participants");
+    if (selected.length < 2) return toast.error("Select at least 2 participants");
+    if (!selected.includes(payerId)) return toast.error("Payer must be included in participants");
 
     try {
       if (splitType === "equal") {
@@ -533,6 +521,7 @@ export default function Group() {
           paid_by_user_id: payerId,
           participant_user_ids: selected,
           split_type: "equal",
+          category: category || undefined,
         });
       } else if (splitType === "exact") {
         // ✅ Use ONLY selected participants; allow 0
@@ -560,6 +549,7 @@ export default function Group() {
           paid_by_user_id: payerId,
           split_type: "exact",
           splits,
+          category: category || undefined,
         });
       } else if (splitType === "percent") {
         // ✅ Use ONLY selected participants; allow 0
@@ -570,11 +560,11 @@ export default function Group() {
         });
 
         const positiveCount = percents.filter((p) => p.percent > 0).length;
-        if (positiveCount === 0) return setErr("At least one percent must be > 0");
+        if (positiveCount === 0) return toast.error("At least one percent must be > 0");
 
         const sumP = percents.reduce((a, s) => a + s.percent, 0);
         if (Math.abs(sumP - 100) > 0.01) {
-          return setErr(`Percents must total 100 (got ${sumP.toFixed(2)})`);
+          return toast.error(`Percents must total 100 (got ${sumP.toFixed(2)})`);
         }
 
         await createExpense(groupId, {
@@ -583,32 +573,37 @@ export default function Group() {
           paid_by_user_id: payerId,
           split_type: "percent",
           percents,
+          category: category || undefined,
         });
       } else {
-        return setErr("Invalid split type");
+        return toast.error("Invalid split type");
       }
 
-      setMsg("Expense added!");
+      toast.success("Expense added! 🎉");
       setTitle("");
       setAmount("");
       setExactMap({});
       setPercentMap({});
       setSplitType("equal");
+      setCategory("");
 
       await refreshAll();
     } catch (e2) {
-      setErr(e2?.message ?? String(e2));
+      toast.error(e2?.message ?? String(e2));
     }
   }
 
   // ===== Render =====
-  if (err && !group) return <div style={{ padding: 20 }}>Error: {err}</div>;
   if (!group) return <div style={{ padding: 20 }}>Loading...</div>;
+
+  // Compute current user's net balance in minor units
+  const myNetMinor = currentUserId && balances?.net ? (balances.net[currentUserId] ?? 0) : 0;
 
   return (
     <div className="gp">
       <div className="gp-header">
         <div className="gp-title">
+          <Link to="/groups" style={{ fontSize: 13, color: "#6b7280", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 4, marginBottom: 4 }}>← Groups</Link>
           <h2>{group.name}</h2>
           <p>Group ID: {group.id}</p>
         </div>
@@ -620,6 +615,32 @@ export default function Group() {
             onClick={() => refreshAll().catch((e2) => setErr(e2?.message ?? String(e2)))}
           >
             Refresh
+          </button>
+          <button
+            type="button"
+            className="btn btn--primary"
+            onClick={async () => {
+              try {
+                const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://127.0.0.1:8000'}/groups/${groupId}/export`, {
+                  headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
+                  },
+                });
+                if (!response.ok) throw new Error('Export failed');
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `group_${groupId}_expenses.csv`;
+                a.click();
+                window.URL.revokeObjectURL(url);
+                toast.success('Export downloaded!');
+              } catch (e) {
+                toast.error('Export failed: ' + e.message);
+              }
+            }}
+          >
+            Export CSV
           </button>
         </div>
       </div>
@@ -688,11 +709,14 @@ export default function Group() {
                     className={`rowItem ${s.id === selectedSettlementId ? "rowItem--active" : ""}`}
                     onClick={() => openSettlement(s.id)}
                   >
-                    <div>
-                      <div style={{ fontWeight: 800 }}>
-                        {nameOf(s.from_user_id)} paid {nameOf(s.to_user_id)}
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <CreditCard size={16} />
+                      <div>
+                        <div style={{ fontWeight: 800 }}>
+                          {nameOf(s.from_user_id)} paid {nameOf(s.to_user_id)}
+                        </div>
+                        <div className="small">Settlement</div>
                       </div>
-                      <div className="small">Settlement</div>
                     </div>
                     <div className="mono" style={{ fontWeight: 800 }}>
                       ₹{money(s.amount_minor)}
@@ -728,6 +752,31 @@ export default function Group() {
 
         {/* RIGHT */}
         <div style={{ display: "grid", gap: 14 }}>
+          {/* Your Balance Hero Card */}
+          <div className="card" style={{
+            background: myNetMinor > 0
+              ? "linear-gradient(135deg, #052e16 0%, #14532d 100%)"
+              : myNetMinor < 0
+              ? "linear-gradient(135deg, #450a0a 0%, #7f1d1d 100%)"
+              : "linear-gradient(135deg, #1e1b4b 0%, #312e81 100%)",
+            border: `1px solid ${myNetMinor > 0 ? "#16a34a" : myNetMinor < 0 ? "#dc2626" : "#6366f1"}`,
+          }}>
+            <p className="small" style={{ marginBottom: 6, opacity: 0.8, color: "#d1d5db" }}>Your Balance</p>
+            {myNetMinor === 0 ? (
+              <div style={{ fontSize: 20, fontWeight: 800, color: "#a5b4fc" }}>✅ All settled up!</div>
+            ) : myNetMinor > 0 ? (
+              <>
+                <div style={{ fontSize: 11, fontWeight: 600, color: "#86efac", textTransform: "uppercase", letterSpacing: 1 }}>You are owed</div>
+                <div style={{ fontSize: 28, fontWeight: 900, color: "#4ade80", fontVariantNumeric: "tabular-nums" }}>₹{money(myNetMinor)}</div>
+              </>
+            ) : (
+              <>
+                <div style={{ fontSize: 11, fontWeight: 600, color: "#fca5a5", textTransform: "uppercase", letterSpacing: 1 }}>You owe</div>
+                <div style={{ fontSize: 28, fontWeight: 900, color: "#f87171", fontVariantNumeric: "tabular-nums" }}>₹{money(Math.abs(myNetMinor))}</div>
+              </>
+            )}
+          </div>
+
           {/* Members */}
           <div className="card">
             <h3>Members</h3>
@@ -767,6 +816,19 @@ export default function Group() {
             <form onSubmit={onAddExpense}>
               <label className="label">Title</label>
               <input className="input" value={title} onChange={(e) => setTitle(e.target.value)} />
+
+              <label className="label">Category</label>
+              <select className="select" value={category} onChange={(e) => setCategory(e.target.value)}>
+                <option value="">Auto-detect</option>
+                <option value="food">Food</option>
+                <option value="travel">Travel</option>
+                <option value="rent">Rent</option>
+                <option value="shopping">Shopping</option>
+                <option value="entertainment">Entertainment</option>
+                <option value="transport">Transport</option>
+                <option value="bills">Bills</option>
+                <option value="other">Other</option>
+              </select>
 
               <label className="label">Amount (₹)</label>
               <input
@@ -926,7 +988,8 @@ export default function Group() {
                 inputMode="decimal"
               />
 
-              <button type="submit" className="btn btn--primary" style={{ marginTop: 12 }}>
+              <button type="submit" className="btn btn--primary" style={{ marginTop: 12, display: "flex", alignItems: "center", gap: 8, justifyContent: "center" }}>
+                <CreditCard size={16} />
                 Record Payment
               </button>
             </form>

@@ -23,6 +23,7 @@ class ExpenseCreate(BaseModel):
     participant_user_ids: List[str] = Field(default_factory=list)
     splits: Optional[List[ExactSplitIn]] = None
     percents: Optional[List[PercentSplitIn]] = None
+    category: Optional[str] = None
 
 class ExpenseOut(BaseModel):
     id: str
@@ -32,6 +33,7 @@ class ExpenseOut(BaseModel):
     paid_by: str
     split_type: Literal["equal", "exact", "percent"]
     splits: List[SplitOut] = Field(default_factory=list)
+    category: Optional[str] = None
 
 class ExpenseUpdate(BaseModel):
     title: Optional[str] = Field(default=None, min_length=1, max_length=200)
@@ -41,3 +43,4 @@ class ExpenseUpdate(BaseModel):
     participant_user_ids: Optional[List[str]] = None
     splits: Optional[List[ExactSplitIn]] = None
     percents: Optional[List[PercentSplitIn]] = None
+    category: Optional[str] = None

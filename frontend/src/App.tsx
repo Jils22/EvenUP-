@@ -5,7 +5,7 @@ import { ProtectedRoute } from './components/ProtectedRoute';
 // Pages
 import Dashboard from './pages/Dashboard';
 import Groups from './pages/Groups';
-import GroupDetails from './pages/GroupDetails';
+import GroupPage from './pages/Group'; // Real fully-wired group detail page
 import Expenses from './pages/Expenses';
 import Settlements from './pages/Settlements';
 import Analytics from './pages/Analytics';
@@ -28,7 +28,7 @@ function App() {
             <Route index element={<Navigate to="/dashboard" replace />} />
             <Route path="dashboard" element={<Dashboard />} />
             <Route path="groups" element={<Groups />} />
-            <Route path="groups/:id" element={<GroupDetails />} />
+            <Route path="groups/:id" element={<GroupPage />} />
             <Route path="expenses" element={<Expenses />} />
             <Route path="settlements" element={<Settlements />} />
             <Route path="analytics" element={<Analytics />} />

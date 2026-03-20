@@ -1,12 +1,14 @@
 import React from 'react';
 import { cn } from '../lib/utils';
 import { Receipt, Info, UserPlus, CreditCard } from 'lucide-react';
+import { getExpenseCategoryIconProps, inferExpenseCategoryKey, type ExpenseCategoryKey } from '../utils/expenseCategory';
 
 export interface Activity {
   id: string | number;
   type: 'expense' | 'info' | 'join' | 'settlement';
   description: React.ReactNode;
   time: string;
+  categoryKey?: ExpenseCategoryKey;
 }
 
 interface ActivityFeedProps extends React.HTMLAttributes<HTMLDivElement> {
@@ -35,7 +37,24 @@ export function ActivityFeed({ activities, className, ...props }: ActivityFeedPr
       
       <div className="space-y-6 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-white/10 before:to-transparent">
         {activities.map((activity) => {
-          const config = icons[activity.type];
+          const expenseCategory =
+            activity.type === 'expense'
+              ? activity.categoryKey ?? inferExpenseCategoryKey({ title: typeof activity.description === 'string' ? activity.description : undefined })
+              : undefined;
+
+          const config = (() => {
+            if (activity.type === 'expense') {
+              const cat = expenseCategory ?? 'other';
+              return {
+                icon: getExpenseCategoryIconProps(cat).Icon,
+                color: getExpenseCategoryIconProps(cat).colorClass,
+                border: getExpenseCategoryIconProps(cat).borderClass,
+              };
+            }
+
+            return icons[activity.type];
+          })();
+
           const Icon = config.icon;
           
           return (

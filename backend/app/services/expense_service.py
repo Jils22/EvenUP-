@@ -154,6 +154,7 @@ def create_expense_service(db, group_id: str, current_user: dict, payload: Expen
         "split_type": split_type,
         "created_at": now,
         "updated_at": now,
+        "category": payload.category,
     }
 
     if split_type == "equal":
@@ -268,6 +269,9 @@ def update_expense_service(db, group_id: str, expense_id: str, current_user: dic
         "amount_minor": new_amount_minor,
         "updated_at": datetime.now(timezone.utc),
     }
+
+    if "category" in patch:
+        update_doc["category"] = patch["category"]
 
     if new_split_type != "percent":
         update_doc["percents_config"] = None

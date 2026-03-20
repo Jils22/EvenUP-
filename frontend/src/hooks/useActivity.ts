@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { activityApi } from '../api/activity';
+import { groupsApi } from '../api/groups';
 
 export function useGroupActivity(groupId: string) {
   return useQuery({
@@ -12,6 +13,25 @@ export function useGroupActivity(groupId: string) {
 export function useGlobalActivity() {
   return useQuery({
     queryKey: ['activity', 'global'],
-    queryFn: activityApi.getGlobalActivity,
+    queryFn: async () => {
+      const groups = await groupsApi.getGroups();
+      const groupIds = (groups ?? []).map((g: any) => g.id).filter(Boolean);
+
+      const perGroup = await Promise.all(
+        groupIds.map(async (groupId: string) => {
+          try {
+            return await activityApi.getGroupActivity(groupId);
+          } catch {
+            return [];
+          }
+        })
+      );
+
+      return perGroup.flat().sort((a: any, b: any) => {
+        const at = new Date(a.created_at ?? 0).getTime();
+        const bt = new Date(b.created_at ?? 0).getTime();
+        return bt - at;
+      });
+    },
   });
 }

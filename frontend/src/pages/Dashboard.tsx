@@ -1,40 +1,38 @@
 import { useAuth } from '../context/AuthContext';
 import { useGroups } from '../hooks/useGroups';
-import { useBalances, useGroupExpenses } from '../hooks/useExpenses';
-import { useSettlements } from '../hooks/useSettlements';
-import { useGlobalActivity } from '../hooks/useActivity';
+import { useGroupExpenses, useMyBalances } from '../hooks/useExpenses';
 import { StatCard } from '../components/StatCard';
 import { ChartCard } from '../components/ChartCard';
 import { GroupCard } from '../components/GroupCard';
 import { ExpenseTable } from '../components/ExpenseTable';
-import { SettlementCard } from '../components/SettlementCard';
-import { ActivityFeed } from '../components/ActivityFeed';
 import { TrendChart } from '../charts/TrendChart';
 import { CategoryChart } from '../charts/CategoryChart';
 import { PrimaryButton } from '../components/ui/Button';
 import { Plus, Loader2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { EmptyStateCard } from '../components/ui/EmptyStateCard';
+import { useGlobalActivity } from '../hooks/useActivity';
+import { ActivityFeed } from '../components/ActivityFeed';
+import { inferExpenseCategoryKey } from '../utils/expenseCategory';
 
 export default function Dashboard() {
   const { user } = useAuth();
   const { data: groups, isLoading: groupsLoading } = useGroups();
-  const { data: balances, isLoading: balancesLoading } = useBalances();
-  const { data: settlements, isLoading: settlementsLoading } = useSettlements();
-  const { data: activities, isLoading: activitiesLoading } = useGlobalActivity();
 
-  // Pick the first group to show 'Recent Expenses' just as an example since there is no global expenses API yet
+  // /users/me/balances → aggregate across all groups
+  const { data: myBalances } = useMyBalances();
+
+  // Pick the first group to show 'Recent Expenses'
   const firstGroupId = groups?.[0]?.id || '';
   const { data: recentExpenses } = useGroupExpenses(firstGroupId);
 
-  const isOverallLoading = groupsLoading || balancesLoading;
+  const { data: globalActivity, isLoading: activityLoading } = useGlobalActivity();
 
-  // Derive top level statistics safely mapping from Balances array
-  // Fallback to 0 if API layout is missing aggregates
-  const globalBalance = balances?.find(b => !b.userId) || {
-    totalOwed: balances?.reduce((acc, b) => acc + (b.totalOwed || 0), 0) || 0,
-    totalOwedToYou: balances?.reduce((acc, b) => acc + (b.totalOwedToYou || 0), 0) || 0,
-    netBalance: balances?.reduce((acc, b) => acc + (b.netBalance || 0), 0) || 0,
-  };
+  const totalOwed = myBalances ? (myBalances.total_owed_minor / 100).toFixed(2) : null;
+  const totalOwedToYou = myBalances ? (myBalances.total_owed_to_you_minor / 100).toFixed(2) : null;
+  const netBalance = myBalances ? myBalances.net_minor / 100 : null;
+
+  const isOverallLoading = groupsLoading;
 
   if (isOverallLoading) {
     return (
@@ -61,24 +59,24 @@ export default function Dashboard() {
       {/* Stat Cards Row */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard 
-          title="You owe" 
-          value={`$${globalBalance.totalOwed.toFixed(2)}`} 
-          valueColor="text-danger" 
-        />
-        <StatCard 
-          title="You are owed" 
-          value={`$${globalBalance.totalOwedToYou.toFixed(2)}`} 
-          valueColor="text-success" 
-        />
-        <StatCard 
-          title="Net Balance" 
-          value={`${globalBalance.netBalance >= 0 ? '+' : '-'}$${Math.abs(globalBalance.netBalance).toFixed(2)}`} 
-          valueColor={globalBalance.netBalance >= 0 ? 'text-success' : 'text-danger'} 
-        />
-        <StatCard 
           title="Total Groups" 
           value={(groups?.length || 0).toString()} 
           valueColor="text-primary" 
+        />
+        <StatCard 
+          title="You Owe" 
+          value={totalOwed !== null ? `₹${totalOwed}` : '...'} 
+          valueColor={totalOwed !== null && parseFloat(totalOwed) > 0 ? 'text-danger' : 'text-secondary'} 
+        />
+        <StatCard 
+          title="You Are Owed" 
+          value={totalOwedToYou !== null ? `₹${totalOwedToYou}` : '...'} 
+          valueColor={totalOwedToYou !== null && parseFloat(totalOwedToYou) > 0 ? 'text-success' : 'text-secondary'} 
+        />
+        <StatCard 
+          title="Net Balance" 
+          value={netBalance !== null ? `${netBalance >= 0 ? '+' : ''}₹${Math.abs(netBalance).toFixed(2)}` : '...'} 
+          valueColor={netBalance !== null ? (netBalance >= 0 ? 'text-success' : 'text-danger') : 'text-secondary'} 
         />
       </div>
       
@@ -106,25 +104,29 @@ export default function Dashboard() {
               <Link to="/groups" className="text-sm font-medium text-primary hover:text-white transition-colors">View All</Link>
             </div>
             {groups?.length === 0 ? (
-               <div className="glass border border-border-soft p-6 text-center rounded-[20px] text-secondary">
-                 You don't have any groups yet.
-               </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {groups?.slice(0, 4).map(group => {
-                  const groupBalance = balances?.find(b => b.userId === group.id)?.netBalance || 0;
-                  return (
-                    <Link key={group.id} to={`/groups/${group.id}`} className="block">
-                      <GroupCard 
-                        name={group.name}
-                        balance={groupBalance}
-                        members={group.members.map(m => ({ id: m.userId, initials: m.initials, src: m.avatarUrl }))}
-                      />
-                    </Link>
-                  );
-                })}
-              </div>
-            )}
+              <EmptyStateCard
+                kind="groups"
+                title="No groups yet"
+                description="Create a group to start splitting expenses with friends."
+                action={
+                  <Link to="/groups" className="text-primary hover:underline inline-block">
+                    Create one!
+                  </Link>
+                }
+              />
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {groups?.slice(0, 4).map(group => (
+                <Link key={group.id} to={`/groups/${group.id}`} className="block">
+                  <GroupCard 
+                    name={group.name}
+                    balance={0}
+                    members={[]}
+                  />
+                </Link>
+              ))}
+            </div>
+          )}
           </div>
 
           <div className="space-y-4">
@@ -133,15 +135,87 @@ export default function Dashboard() {
               <Link to="/expenses" className="text-sm font-medium text-primary hover:text-white transition-colors">See History</Link>
             </div>
             {!firstGroupId ? (
-               <div className="glass border border-border-soft p-6 text-center rounded-[20px] text-secondary">
-                 Create a group to record expenses.
-               </div>
+                <EmptyStateCard
+                  kind="groups"
+                  title="Start by creating a group"
+                  description="Once you add a group, you can record expenses and see your activity here."
+                  action={
+                    <Link to="/groups" className="text-primary hover:underline inline-block">
+                      Go to Groups
+                    </Link>
+                  }
+                />
             ) : recentExpenses?.length === 0 ? (
-               <div className="glass border border-border-soft p-6 text-center rounded-[20px] text-secondary">
-                 No expenses logged in your primary group.
-               </div>
+                <EmptyStateCard
+                  kind="expenses"
+                  title="No expenses yet"
+                  description="Add your first record to see it here."
+                />
             ) : (
                <ExpenseTable expenses={recentExpenses?.slice(0, 4) || []} />
+            )}
+          </div>
+
+          <div className="space-y-4">
+            {activityLoading ? (
+              <div className="glass border border-border-soft py-20 flex justify-center rounded-[20px]">
+                <Loader2 className="w-8 h-8 animate-spin text-primary" />
+              </div>
+            ) : (
+              <ActivityFeed
+                activities={(globalActivity ?? []).map((a) => {
+                  const mappedType =
+                    a.event_type === 'expense'
+                      ? 'expense'
+                      : a.event_type === 'settlement'
+                        ? 'settlement'
+                        : 'info';
+
+                  const verb = a.verb ? String(a.verb) : '';
+                  const data = a.data ?? {};
+
+                  const formatMoneyMinor = (minor: unknown) => {
+                    const n = typeof minor === 'string' ? Number(minor) : (minor as number);
+                    if (!Number.isFinite(n)) return null;
+                    return `₹${(n / 100).toFixed(2)}`;
+                  };
+
+                  const titleForExpense =
+                    data?.title ??
+                    data?.after?.title ??
+                    data?.before?.title ??
+                    'Expense';
+
+                  const categoryKey = inferExpenseCategoryKey({ title: titleForExpense });
+
+                  const amountForExpense =
+                    data?.amount_minor ??
+                    data?.after?.amount_minor ??
+                    data?.before?.amount_minor;
+
+                  const amountText = mappedType === 'expense' ? formatMoneyMinor(amountForExpense) : formatMoneyMinor(data?.amount_minor ?? data?.after?.amount_minor ?? data?.before?.amount_minor);
+
+                  let description = '';
+                  if (mappedType === 'expense') {
+                    description = `${titleForExpense}${verb ? ` ${verb}` : ''}${amountText ? ` • ${amountText}` : ''}`;
+                  } else if (mappedType === 'settlement') {
+                    description = `Settlement${verb ? ` ${verb}` : ''}${amountText ? ` • ${amountText}` : ''}`;
+                  } else {
+                    description = `${verb ? `${verb} • ` : ''}${a.event_type ?? 'Activity'}`;
+                  }
+
+                  const d = new Date(a.created_at);
+                  const time = Number.isNaN(d.getTime()) ? '' : d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+                  return {
+                    id: a.id,
+                    type: mappedType,
+                    description,
+                    time,
+                    categoryKey: mappedType === 'expense' ? categoryKey : undefined,
+                  };
+                })}
+              />
             )}
           </div>
 
@@ -151,41 +225,29 @@ export default function Dashboard() {
         <div className="space-y-8">
           
           <div className="space-y-4">
-            <h2 className="text-xl font-bold text-white">Pending Settlements</h2>
-            <div className="flex flex-col gap-4">
-              {settlementsLoading ? (
-                 <Loader2 className="animate-spin text-primary mx-auto my-4 w-6 h-6" />
-              ) : settlements?.length === 0 ? (
-                 <div className="glass border border-border-soft p-6 text-center rounded-[20px] text-secondary">
-                   You are fully settled up!
-                 </div>
-              ) : (
-                settlements?.slice(0, 4).map(settle => (
-                  <SettlementCard 
-                    key={settle.id}
-                    // Mapping dynamic structure again
-                    fromUser={{ name: `User ${settle.fromUserId.slice(-4)}`, initials: 'U' }}
-                    toUser={{ name: `User ${settle.toUserId.slice(-4)}`, initials: 'U' }}
-                    amount={settle.amount}
-                    type={settle.status === 'pending' ? 'owes' : 'owed'}
-                    onSettle={() => console.log('Settle clicked')}
-                    onRemind={() => console.log('Remind clicked')}
-                  />
-                ))
-              )}
-            </div>
-          </div>
-
-          <div className="space-y-4">
-            <h2 className="text-xl font-bold text-white">Activity Feed</h2>
-            <div className="glass border border-border-soft p-6 rounded-[20px]">
-              {activitiesLoading ? (
-                 <Loader2 className="animate-spin text-primary mx-auto my-4 w-6 h-6" />
-              ) : activities?.length === 0 ? (
-                 <p className="text-secondary text-center">No recent global activity.</p>
-              ) : (
-                 <ActivityFeed activities={activities?.slice(0, 6) || []} />
-              )}
+            <h2 className="text-xl font-bold text-white">Quick Links</h2>
+            <div className="flex flex-col gap-3">
+              <Link to="/groups" className="glass border border-border-soft p-4 rounded-[16px] text-white hover:bg-white/5 transition flex items-center gap-3">
+                <span className="text-lg">👥</span>
+                <div>
+                  <div className="font-semibold">Your Groups</div>
+                  <div className="text-secondary text-sm">{groups?.length || 0} active groups</div>
+                </div>
+              </Link>
+              <Link to="/expenses" className="glass border border-border-soft p-4 rounded-[16px] text-white hover:bg-white/5 transition flex items-center gap-3">
+                <span className="text-lg">💸</span>
+                <div>
+                  <div className="font-semibold">Expenses</div>
+                  <div className="text-secondary text-sm">View all expenses</div>
+                </div>
+              </Link>
+              <Link to="/settlements" className="glass border border-border-soft p-4 rounded-[16px] text-white hover:bg-white/5 transition flex items-center gap-3">
+                <span className="text-lg">✅</span>
+                <div>
+                  <div className="font-semibold">Settlements</div>
+                  <div className="text-secondary text-sm">Settle up with friends</div>
+                </div>
+              </Link>
             </div>
           </div>
 

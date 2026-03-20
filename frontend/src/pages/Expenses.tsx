@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { useGroups } from '../hooks/useGroups';
 import { useGroupExpenses } from '../hooks/useExpenses';
 import { ExpenseTable } from '../components/ExpenseTable';
+import { EmptyStateCard } from '../components/ui/EmptyStateCard';
 import { PrimaryButton, SecondaryButton } from '../components/ui/Button';
-import { Download, Filter, Plus, Loader2, Info } from 'lucide-react';
+import { Download, Filter, Plus, Loader2 } from 'lucide-react';
 
 export default function Expenses() {
   const { data: groups, isLoading: groupsLoading } = useGroups();
@@ -42,10 +44,16 @@ export default function Expenses() {
            <Loader2 className="w-8 h-8 animate-spin text-primary" />
          </div>
        ) : !groups || groups.length === 0 ? (
-         <div className="glass border border-border-soft rounded-[20px] p-10 text-center flex flex-col items-center gap-4">
-           <Info className="w-10 h-10 text-secondary" />
-           <p className="text-secondary">You aren't part of any groups yet. Create a group to start tracking expenses.</p>
-         </div>
+        <EmptyStateCard
+          kind="groups"
+          title="No groups yet"
+          description="You aren't part of any groups yet. Create a group to start tracking expenses."
+          action={
+            <Link to="/groups" className="inline-block">
+              <PrimaryButton>Create your first group</PrimaryButton>
+            </Link>
+          }
+        />
        ) : (
          <div className="space-y-6">
            {/* Simple group selector to scope the expenses payload */}
@@ -70,9 +78,11 @@ export default function Expenses() {
                <Loader2 className="w-8 h-8 animate-spin text-primary" />
              </div>
            ) : !expenses || expenses.length === 0 ? (
-             <div className="glass border border-border-soft p-10 text-center text-secondary rounded-[20px]">
-               No expenses recorded in this group yet.
-             </div>
+            <EmptyStateCard
+              kind="expenses"
+              title="No expenses yet"
+              description="Once you add records, they’ll show up here."
+            />
            ) : (
              <ExpenseTable expenses={expenses} />
            )}

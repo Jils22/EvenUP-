@@ -7,10 +7,17 @@ class GroupCreate(BaseModel):
     name: str = Field(min_length=1, max_length=120)
 
 
+class MemberOut(BaseModel):
+    id: str
+    name: str
+    email: str
+
+
 class GroupOut(BaseModel):
     id: str
     name: str
     created_by: str
+    members: list[MemberOut] = []
 
 
 class AddMemberRequest(BaseModel):

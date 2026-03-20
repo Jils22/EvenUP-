@@ -13,6 +13,15 @@ export function useBalances(groupId?: string) {
   return useQuery({
     queryKey: ['balances', { groupId }],
     queryFn: () => expensesApi.getBalances(groupId),
+    enabled: !!groupId,  // only fetch when groupId is provided
+  });
+}
+
+export function useMyBalances() {
+  return useQuery({
+    queryKey: ['my-balances'],
+    queryFn: () => expensesApi.getUserBalances(),
+    retry: false,  // gracefully handle if endpoint not ready
   });
 }
 

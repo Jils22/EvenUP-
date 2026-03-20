@@ -3,18 +3,22 @@ from pymongo.database import Database
 
 from app.core.auth import get_current_user
 from app.db.deps import get_db
-from app.schemas.groups import AddMemberRequest, GroupCreate, GroupOut
+from app.schemas.groups import AddMemberRequest, GroupCreate, GroupOut, MemberOut
 from app.services.common_service import require_group_member
 from app.utils.mongo_ids import oid, sid
 
 router = APIRouter(prefix="/groups", tags=["groups"])
 
 
-def group_to_out(group: dict) -> GroupOut:
+def group_to_out(group: dict, db) -> GroupOut:
+    member_oids = group.get("member_ids", [])
+    users = list(db["users"].find({"_id": {"$in": member_oids}}, {"name": 1, "email": 1}))
+    members = [MemberOut(id=sid(u["_id"]), name=u.get("name", ""), email=u.get("email", "")) for u in users]
     return GroupOut(
         id=sid(group["_id"]),
         name=group["name"],
         created_by=sid(group["created_by"]),
+        members=members,
     )
 
 
@@ -36,14 +40,14 @@ def create_group(
     created = db["groups"].find_one({"_id": result.inserted_id})
     assert created is not None
 
-    return group_to_out(created)
+    return group_to_out(created, db)
 
 
 @router.get("", response_model=list[GroupOut])
 def list_my_groups(db: Database = Depends(get_db), current_user=Depends(get_current_user)):
     me_oid = oid(current_user["id"])
     rows = db["groups"].find({"member_ids": me_oid}).sort("_id", -1)
-    return [group_to_out(group) for group in rows]
+    return [group_to_out(group, db) for group in rows]
 
 
 @router.get("/{group_id}", response_model=GroupOut)
@@ -51,7 +55,7 @@ def get_group(group_id: str, db: Database = Depends(get_db), current_user=Depend
     group_oid = oid(group_id)
     me_oid = oid(current_user["id"])
     group = require_group_member(db, group_oid, me_oid)
-    return group_to_out(group)
+    return group_to_out(group, db)
 
 
 @router.get("/{group_id}/members")

@@ -1,15 +1,27 @@
 import { apiClient } from './client';
-import { ActivityItem } from '../types/api';
+
+// Matches backend `ActivityItemOut` + `ActivityListOut` shapes.
+// The backend returns `{ items: [...] }` for group activity.
+type BackendActivityItemOut = {
+  id: string;
+  created_at: string;
+  actor_id: string;
+  event_type?: string | null;
+  verb?: string | null;
+  target_id?: string | null;
+  data?: Record<string, any>;
+};
+
+type BackendActivityListOut = {
+  items: BackendActivityItemOut[];
+};
 
 export const activityApi = {
-  getGroupActivity: async (groupId: string): Promise<ActivityItem[]> => {
-    const { data } = await apiClient.get<ActivityItem[]>(`/groups/${groupId}/activity`);
-    return data;
+  getGroupActivity: async (groupId: string): Promise<BackendActivityItemOut[]> => {
+    const { data } = await apiClient.get<BackendActivityListOut | BackendActivityItemOut[]>(
+      `/groups/${groupId}/activity`
+    );
+    const items = Array.isArray(data) ? data : data?.items ?? [];
+    return items;
   },
-  
-  // Potential global activity feed if supported by backend
-  getGlobalActivity: async (): Promise<ActivityItem[]> => {
-    const { data } = await apiClient.get<ActivityItem[]>('/activity');
-    return data;
-  }
 };

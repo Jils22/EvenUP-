@@ -46,3 +46,8 @@
     @apply bg-sidebar/90 backdrop-blur-lg border-r border-white/5;
   }
 }
+
+@keyframes shrink {
+  from { width: 100%; }
+  to   { width: 0%; }
+}

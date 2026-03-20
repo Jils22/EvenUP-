@@ -1,14 +1,17 @@
 import React from 'react';
 import { cn } from '../lib/utils';
 import { Badge } from './ui/Badge';
+import { getExpenseCategoryIconProps, inferExpenseCategoryKey } from '../utils/expenseCategory';
 
 export interface Expense {
   id: string | number;
   title: string;
   amount: number;
   date: string;
-  split: 'equal' | 'exact' | 'percentage';
+  split?: 'equal' | 'exact' | 'percentage';
+  splitType?: 'equal' | 'exact' | 'percentage';
   paidBy: string;
+  category?: string;
 }
 
 interface ExpenseTableProps extends React.HTMLAttributes<HTMLDivElement> {
@@ -41,7 +44,30 @@ export function ExpenseTable({ expenses, className, ...props }: ExpenseTableProp
             {expenses.map((expense) => (
               <tr key={expense.id} className="hover:bg-white/5 transition-colors group">
                 <td className="px-6 py-4 font-medium text-white group-hover:text-primary transition-colors">
-                  {expense.title}
+                  {(() => {
+                    const categoryKey = inferExpenseCategoryKey({ title: expense.title, category: expense.category });
+                    const iconProps = getExpenseCategoryIconProps(categoryKey);
+                    const Icon = iconProps.Icon;
+                    return (
+                      <div className="flex items-center gap-3">
+                        <div
+                          className={cn(
+                            'w-8 h-8 rounded-xl flex items-center justify-center border',
+                            iconProps.containerBgClass
+                          )}
+                          aria-hidden="true"
+                        >
+                          <Icon className="w-4 h-4" />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="truncate font-medium">{expense.title}</div>
+                          {categoryKey !== 'other' ? (
+                            <div className="text-xs text-secondary mt-0.5">{iconProps.label}</div>
+                          ) : null}
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </td>
                 <td className="px-6 py-4 text-secondary">
                   {new Date(expense.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
@@ -55,9 +81,15 @@ export function ExpenseTable({ expenses, className, ...props }: ExpenseTableProp
                   </div>
                 </td>
                 <td className="px-6 py-4">
-                  <Badge variant={expense.split === 'equal' ? 'primary' : 'warning'}>
-                    {expense.split}
-                  </Badge>
+                  {(() => {
+                    const split = expense.split ?? expense.splitType ?? 'equal';
+                    const badgeVariant = split === 'equal' ? 'primary' : 'warning';
+                    return (
+                      <Badge variant={badgeVariant}>
+                        {split}
+                      </Badge>
+                    );
+                  })()}
                 </td>
                 <td className="px-6 py-4 text-right font-bold text-white">
                   ${expense.amount.toFixed(2)}
