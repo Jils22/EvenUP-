@@ -2,10 +2,10 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { DashboardLayout } from './layout/DashboardLayout';
 import { ProtectedRoute } from './components/ProtectedRoute';
 
-// Pages
+// Pages — Core
 import Dashboard from './pages/Dashboard';
 import Groups from './pages/Groups';
-import GroupPage from './pages/Group'; // Real fully-wired group detail page
+import GroupPage from './pages/Group';
 import Expenses from './pages/Expenses';
 import Settlements from './pages/Settlements';
 import Analytics from './pages/Analytics';
@@ -13,6 +13,12 @@ import Budget from './pages/Budget';
 import Settings from './pages/Settings';
 import Login from './pages/Login';
 import Register from './pages/Register';
+
+// Pages — Premium Features
+import Badges from './pages/Badges';
+import Recurring from './pages/Recurring';
+import ShoppingList from './pages/ShoppingList';
+import CurrencyConverter from './pages/CurrencyConverter';
 
 function App() {
   return (
@@ -34,6 +40,11 @@ function App() {
             <Route path="analytics" element={<Analytics />} />
             <Route path="budget" element={<Budget />} />
             <Route path="settings" element={<Settings />} />
+            {/* Premium Routes */}
+            <Route path="badges" element={<Badges />} />
+            <Route path="recurring" element={<Recurring />} />
+            <Route path="shopping" element={<ShoppingList />} />
+            <Route path="currency" element={<CurrencyConverter />} />
           </Route>
         </Route>
       </Routes>

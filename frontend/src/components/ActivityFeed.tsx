@@ -83,3 +83,5 @@ export function ActivityFeed({ activities, className, ...props }: ActivityFeedPr
     </div>
   );
 }
+
+export default ActivityFeed;

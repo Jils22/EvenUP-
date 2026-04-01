@@ -16,12 +16,15 @@ from app.routes.files import router as files_router
 from app.routes.invites import router as invites_router
 from app.routes.notifications import router as notifications_router
 from app.routes.export import router as export_router
+from app.routes.badges import router as badges_router
+from app.routes.recurring import router as recurring_router
+from app.routes.shopping import router as shopping_router
 
 app = FastAPI(title=settings.APP_NAME, openapi_prefix="/api")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.CORS_ORIGINS,
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -40,6 +43,9 @@ app.include_router(files_router)
 app.include_router(invites_router)
 app.include_router(notifications_router)
 app.include_router(export_router)
+app.include_router(badges_router)
+app.include_router(recurring_router)
+app.include_router(shopping_router)
 
 
 @app.get("/health")
@@ -77,6 +83,11 @@ def ensure_indexes():
 
     db["audit_logs"].create_index([("group_id", 1), ("created_at", -1)])
     db["audit_logs"].create_index([("actor_id", 1), ("created_at", -1)])
+
+    # New collections for premium features
+    db["recurring_expenses"].create_index([("group_id", 1), ("active", 1)])
+    db["recurring_expenses"].create_index([("group_id", 1), ("next_due", 1)])
+    db["shopping_items"].create_index([("group_id", 1), ("_id", 1)])
 
 
 @app.on_event("shutdown")

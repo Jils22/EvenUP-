@@ -48,7 +48,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   // If we have a token but query is still fetching, we are technically loading auth state
-  const isLoading = !!token && isUserLoading;
+  // But we consider it loading ONLY if we don't have user data yet
+  const isLoading = (!!token && isUserLoading && !user);
 
   return (
     <AuthContext.Provider value={{
@@ -56,7 +57,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       isLoading,
       login,
       logout,
-      isAuthenticated: !!user
+      isAuthenticated: !!token
     }}>
       {children}
     </AuthContext.Provider>

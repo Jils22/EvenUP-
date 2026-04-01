@@ -1,31 +1,33 @@
+// These types exactly mirror the backend Pydantic schemas
+
 export interface User {
-  id: string; // Mongo ObjectId
+  id: string;
   name: string;
   email: string;
-  avatarUrl?: string;
-  createdAt: string;
+  created_at?: string;  // snake_case from backend
+  avatarUrl?: string;   // frontend-only field, may be missing
 }
 
+// Backend `MemberOut` returns id/name/email
 export interface Member {
-  userId: string;
+  id: string;
   name: string;
-  initials: string;
-  avatarUrl?: string;
+  email: string;
 }
 
+// Backend `GroupOut` returns id/name/created_by/members
 export interface Group {
   id: string;
   name: string;
-  description?: string;
+  created_by: string;
   members: Member[];
-  createdAt: string;
-  updatedAt: string;
+  description?: string; // frontend-only, may be absent
 }
 
 export interface ExpenseParticipant {
   userId: string;
-  amountOwed: number; // For exact splits
-  sharePercentage?: number; // For percentage splits
+  amountOwed: number;
+  sharePercentage?: number;
   hasPaid: boolean;
 }
 
@@ -34,7 +36,7 @@ export interface Expense {
   groupId: string;
   title: string;
   amount: number;
-  paidBy: string; // userId
+  paidBy: string;
   date: string;
   splitType: 'equal' | 'exact' | 'percentage';
   participants: ExpenseParticipant[];
@@ -64,7 +66,7 @@ export interface ActivityItem {
 
 export interface BalanceSummary {
   userId: string;
-  totalOwed: number; // You owe
-  totalOwedToYou: number; // You are owed
+  totalOwed: number;
+  totalOwedToYou: number;
   netBalance: number;
 }

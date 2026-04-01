@@ -113,7 +113,7 @@ export default function Groups() {
               <GroupCard 
                 name={group.name}
                 balance={0}
-                members={(group.members || []).map((m: any) => ({ id: m.userId || m.id, initials: m.initials || m.name?.[0] || '?', src: m.avatarUrl }))}
+                members={(group.members || []).map((m: any) => ({ id: m.id, initials: m.name ? m.name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2) : (m.email?.[0] || '?').toUpperCase(), src: m.avatarUrl }))}
               />
             </Link>
           ))}

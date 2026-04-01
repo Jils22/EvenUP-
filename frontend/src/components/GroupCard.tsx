@@ -2,6 +2,7 @@ import React from 'react';
 import { cn } from '../lib/utils';
 import { AvatarStack } from './ui/AvatarStack';
 import { ChevronRight } from 'lucide-react';
+import { AnimatedNumber } from './ui/AnimatedNumber';
 
 interface GroupCardProps extends React.HTMLAttributes<HTMLDivElement> {
   name: string;
@@ -13,9 +14,10 @@ export function GroupCard({ name, balance, members, className, ...props }: Group
   const isPositive = balance >= 0;
   
   return (
+    <div className={cn("tilt-card-container", className)}>
     <div 
       className={cn(
-        "glass border border-border-soft p-6 rounded-[20px] flex flex-col justify-between h-48 group cursor-pointer hover:border-primary/50 transition-colors relative overflow-hidden",
+        "glass border border-border-soft p-6 rounded-[20px] flex flex-col justify-between h-48 group cursor-pointer tilt-card relative overflow-hidden",
         className
       )}
       {...props}
@@ -42,9 +44,10 @@ export function GroupCard({ name, balance, members, className, ...props }: Group
           "text-2xl font-bold tracking-tight",
           isPositive ? "text-success" : "text-danger"
         )}>
-          {isPositive ? '+' : '-'}${Math.abs(balance).toFixed(2)}
+          {isPositive ? '+' : '-'}₹<AnimatedNumber value={Math.abs(balance)} />
         </span>
       </div>
+    </div>
     </div>
   );
 }

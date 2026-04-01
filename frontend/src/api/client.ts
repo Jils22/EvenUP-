@@ -38,6 +38,8 @@ apiClient.interceptors.response.use(
        // Token expired or invalid, trigger logout flow
        localStorage.removeItem('evenup_auth_token');
        window.dispatchEvent(new Event('auth_unauthorized'));
+       // Fast failing UI redirect
+       window.location.href = '/login';
     }
 
     return Promise.reject(customError);

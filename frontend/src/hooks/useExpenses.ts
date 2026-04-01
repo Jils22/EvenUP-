@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { expensesApi } from '../api/expenses';
+import { expensesApi } from '../api/expensesApi';
 
 export function useGroupExpenses(groupId: string) {
   return useQuery({
@@ -21,7 +21,13 @@ export function useMyBalances() {
   return useQuery({
     queryKey: ['my-balances'],
     queryFn: () => expensesApi.getUserBalances(),
-    retry: false,  // gracefully handle if endpoint not ready
+  });
+}
+
+export function useAnalytics() {
+  return useQuery({
+    queryKey: ['analytics'],
+    queryFn: () => expensesApi.getAnalytics(),
   });
 }
 

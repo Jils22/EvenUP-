@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { groupsApi } from '../api/groups';
+import { groupsApi } from '../api/groupsApi';
 
 export function useGroups() {
   return useQuery({

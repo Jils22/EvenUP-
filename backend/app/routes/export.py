@@ -46,19 +46,32 @@ def export_group_expenses(
     # Rows
     for exp in expenses:
         paid_by_name = "Unknown"
-        # Get user name
-        user_doc = db["users"].find_one({"_id": exp["paid_by"]})
+        user_doc = db["users"].find_one({"_id": exp.get("paid_by")})
         if user_doc:
-            paid_by_name = user_doc.get("name", "Unknown")
-        
+            paid_by_name = user_doc.get("name") or user_doc.get("email", "Unknown")
+
+        # Safely format the date regardless of type
+        raw_date = exp.get("created_at")
+        if hasattr(raw_date, "strftime"):
+            date_str = raw_date.strftime("%Y-%m-%d")
+        elif isinstance(raw_date, str):
+            date_str = raw_date[:10]
+        else:
+            # Fallback: extract from ObjectId generation time
+            try:
+                date_str = exp["_id"].generation_time.strftime("%Y-%m-%d")
+            except Exception:
+                date_str = ""
+
         writer.writerow([
-            exp.get("created_at", "").strftime("%Y-%m-%d") if exp.get("created_at") else "",
+            date_str,
             exp.get("title", ""),
             f"{exp.get('amount_minor', 0) / 100:.2f}",
             paid_by_name,
             exp.get("split_type", ""),
             exp.get("category", ""),
         ])
+
     
     output.seek(0)
     

@@ -40,4 +40,8 @@ export const expensesApi = {
     const { data } = await apiClient.get("/users/me/balances");
     return data;
   },
+  getAnalytics: async () => {
+    const { data } = await apiClient.get("/users/me/analytics");
+    return data;
+  },
 };

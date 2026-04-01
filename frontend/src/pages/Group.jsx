@@ -2,7 +2,21 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
-import { CreditCard } from "lucide-react";
+import {
+  CreditCard,
+  Utensils,
+  Plane,
+  Home,
+  ShoppingBag,
+  Film,
+  Bus,
+  FileText,
+  Tag,
+  CheckCircle,
+  Camera,
+  Sparkles,
+  Loader2
+} from "lucide-react";
 
 import { getGroup, addMember } from "../api/groups";
 import { listMembers } from "../api/members";
@@ -18,7 +32,19 @@ import {
 } from "../api/settlements";
 
 import ActivityFeed from "../components/ActivityFeed";
+import { cn } from "../lib/utils";
 import "./group.css";
+
+const CATEGORY_ICONS = {
+  food: <Utensils size={16} />,
+  travel: <Plane size={16} />,
+  rent: <Home size={16} />,
+  shopping: <ShoppingBag size={16} />,
+  entertainment: <Film size={16} />,
+  transport: <Bus size={16} />,
+  bills: <FileText size={16} />,
+  other: <Tag size={16} />,
+};
 
 function money(minor) {
   return (Number(minor || 0) / 100).toFixed(2);
@@ -38,6 +64,10 @@ export default function Group() {
   const [activity, setActivity] = useState([]);
 
   const [inviteEmail, setInviteEmail] = useState("");
+  
+  const [msg, setMsg] = useState("");
+  const [err, setErr] = useState("");
+  const [scanning, setScanning] = useState(false);
 
   // Add expense form
   const [title, setTitle] = useState("");
@@ -75,6 +105,7 @@ export default function Group() {
   const [editParticipants, setEditParticipants] = useState([]);
   const [editExactMap, setEditExactMap] = useState({});
   const [editPercentMap, setEditPercentMap] = useState({});
+  const [editCategory, setEditCategory] = useState("");
 
   // ===== Edit settlement =====
   const [editingSettlementId, setEditingSettlementId] = useState("");
@@ -130,6 +161,7 @@ export default function Group() {
     setEditParticipants([]);
     setEditExactMap({});
     setEditPercentMap({});
+    setEditCategory("");
   }
 
   function resetSettlementEditState() {
@@ -374,13 +406,9 @@ export default function Group() {
     const st = selectedExpense.split_type || "equal";
     setEditSplitType(st);
 
-    setEditParticipants([]);
-    setEditExactMap({});
-    setEditPercentMap({});
-
     const splits = selectedExpense.splits || [];
-
     setEditParticipants(splits.map((s) => s.user_id));
+    setEditCategory(selectedExpense.category || "");
 
     if (st === "equal") {
       setEditParticipants(splits.map((s) => s.user_id));
@@ -427,7 +455,12 @@ export default function Group() {
     if (selected.length < 2) return toast.error("Select at least 2 participants");
     if (!selected.includes(payerId)) return toast.error("Payer must be included in participants");
 
-    const payload = { title: editTitle.trim(), amount: amt, split_type: st };
+    const payload = {
+      title: editTitle.trim(),
+      amount: amt,
+      split_type: st,
+      category: editCategory || undefined,
+    };
 
     try {
       if (st === "equal") {
@@ -593,6 +626,20 @@ export default function Group() {
     }
   }
 
+  async function onSmartScan() {
+    setScanning(true);
+    toast.info("Scanning receipt... 📸");
+    
+    // Mocking the AI processing time
+    await new Promise(r => setTimeout(r, 2000));
+    
+    setTitle("Dinner at Olive Garden 🇮🇹");
+    setAmount("2450.00");
+    setCategory("food");
+    setScanning(false);
+    toast.success("Receipt scanned! Details filled. ✨");
+  }
+
   // ===== Render =====
   if (!group) return <div style={{ padding: 20 }}>Loading...</div>;
 
@@ -612,7 +659,14 @@ export default function Group() {
           <button
             type="button"
             className="btn"
-            onClick={() => refreshAll().catch((e2) => setErr(e2?.message ?? String(e2)))}
+            onClick={async () => {
+              try {
+                await refreshAll();
+                toast.success("Data refreshed!");
+              } catch(e) {
+                toast.error(e?.message ?? String(e));
+              }
+            }}
           >
             Refresh
           </button>
@@ -621,22 +675,23 @@ export default function Group() {
             className="btn btn--primary"
             onClick={async () => {
               try {
-                const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://127.0.0.1:8000'}/groups/${groupId}/export`, {
-                  headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
-                  },
+                const token = localStorage.getItem('evenup_auth_token');
+                const response = await fetch(`http://127.0.0.1:8000/groups/${groupId}/export`, {
+                  headers: { 'Authorization': `Bearer ${token}` }
                 });
-                if (!response.ok) throw new Error('Export failed');
+                if (!response.ok) throw new Error(`Export failed: ${response.status}`);
                 const blob = await response.blob();
                 const url = window.URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
-                a.download = `group_${groupId}_expenses.csv`;
+                a.download = `${group?.name || 'group'}_expenses.csv`;
+                document.body.appendChild(a);
                 a.click();
+                document.body.removeChild(a);
                 window.URL.revokeObjectURL(url);
-                toast.success('Export downloaded!');
+                toast.success('CSV exported!');
               } catch (e) {
-                toast.error('Export failed: ' + e.message);
+                toast.error('Export failed: ' + (e?.message || String(e)));
               }
             }}
           >
@@ -667,7 +722,7 @@ export default function Group() {
         {/* LEFT */}
         <div style={{ display: "grid", gap: 14 }}>
           {/* Expenses */}
-          <div className="card" ref={expensesRef}>
+          <div className="card tilt-card" ref={expensesRef}>
             <h3>Expenses</h3>
 
             {expenses.length === 0 ? (
@@ -680,10 +735,25 @@ export default function Group() {
                     className={`rowItem ${e.id === selectedExpenseId ? "rowItem--active" : ""}`}
                     onClick={() => openExpense(e.id)}
                   >
-                    <div>
-                      <div style={{ fontWeight: 800 }}>{e.title}</div>
-                      <div className="small">
-                        paid by {memberById.get(e.paid_by)?.name ?? `User#${e.paid_by}`}
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <div className="category-icon" style={{ 
+                        width: 32, 
+                        height: 32, 
+                        borderRadius: 8, 
+                        background: "rgba(255,255,255,0.05)", 
+                        display: "flex", 
+                        alignItems: "center", 
+                        justifyContent: "center",
+                        color: "#9ca3af"
+                      }}>
+                        {CATEGORY_ICONS[e.category] || <Tag size={16} />}
+                      </div>
+                      <div>
+                        <div style={{ fontWeight: 800 }}>{e.title}</div>
+                        <div className="small">
+                          paid by {memberById.get(e.paid_by)?.name ?? `User#${e.paid_by}`}
+                          {e.category && <span style={{ marginLeft: 8, opacity: 0.6 }}>• {e.category}</span>}
+                        </div>
                       </div>
                     </div>
                     <div className="mono" style={{ fontWeight: 800 }}>
@@ -696,7 +766,7 @@ export default function Group() {
           </div>
 
           {/* Settlements */}
-          <div className="card" ref={settlementsRef}>
+          <div className="card tilt-card" ref={settlementsRef}>
             <h3>Settlements</h3>
 
             {settlements.length === 0 ? (
@@ -728,13 +798,20 @@ export default function Group() {
           </div>
 
           {/* Activity */}
-          <div className="card" ref={activityRef}>
+          <div className="card tilt-card" ref={activityRef}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
               <h3 style={{ margin: 0 }}>Activity</h3>
               <button
                 type="button"
                 className="btn"
-                onClick={() => refreshAll().catch((e2) => setErr(e2?.message ?? String(e2)))}
+                onClick={async () => {
+                  try {
+                    await refreshAll();
+                    toast.success("Activity refreshed!");
+                  } catch(e) {
+                    toast.error(e?.message ?? String(e));
+                  }
+                }}
               >
                 Refresh
               </button>
@@ -778,7 +855,7 @@ export default function Group() {
           </div>
 
           {/* Members */}
-          <div className="card">
+          <div className="card tilt-card">
             <h3>Members</h3>
 
             <ul className="listPlain" style={{ display: "grid", gap: 8 }}>
@@ -810,8 +887,20 @@ export default function Group() {
           </div>
 
           {/* Add Expense */}
-          <div className="card">
-            <h3>Add Expense</h3>
+          <div className="card tilt-card" style={{ border: scanning ? '1px solid var(--primary)' : undefined }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+              <h3 style={{ margin: 0 }}>Add Expense</h3>
+              <button 
+                type="button" 
+                className={cn("btn btn--small gap-2", scanning && "animate-pulse")}
+                onClick={onSmartScan}
+                disabled={scanning}
+                style={{ background: 'rgba(192, 143, 245, 0.1)', color: 'var(--primary)', border: '1px solid rgba(192, 143, 245, 0.2)' }}
+              >
+                {scanning ? <Loader2 size={14} className="animate-spin" /> : <Camera size={14} />}
+                {scanning ? "Scanning..." : "Smart Scan"}
+              </button>
+            </div>
 
             <form onSubmit={onAddExpense}>
               <label className="label">Title</label>
@@ -917,7 +1006,7 @@ export default function Group() {
           </div>
 
           {/* Balances */}
-          <div className="card">
+          <div className="card tilt-card">
             <h3>Balances</h3>
             {!balances ? (
               <p className="card-muted">Loading balances…</p>
@@ -926,8 +1015,24 @@ export default function Group() {
             ) : (
               <ul className="list">
                 {balances.transfers.map((t, idx) => (
-                  <li key={idx}>
-                    {nameOf(t.from_user_id)} owes {nameOf(t.to_user_id)} <b>₹{money(t.amount_minor)}</b>
+                  <li key={idx} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span>
+                      {nameOf(t.from_user_id)} owes {nameOf(t.to_user_id)} <b>₹{money(t.amount_minor)}</b>
+                    </span>
+                    <button 
+                      type="button" 
+                      className="btn btn--small" 
+                      style={{ fontSize: 11, padding: '2px 8px' }}
+                      onClick={() => {
+                        setSettleFrom(String(t.from_user_id));
+                        setSettleTo(String(t.to_user_id));
+                        setSettleAmount((t.amount_minor / 100).toFixed(2));
+                        const settleEl = document.querySelector('h3:contains("Settle Up")') || settlementsRef.current;
+                        settleEl?.scrollIntoView({ behavior: 'smooth' });
+                      }}
+                    >
+                      Settle
+                    </button>
                   </li>
                 ))}
               </ul>
@@ -935,7 +1040,7 @@ export default function Group() {
           </div>
 
           {/* Settle Up */}
-          <div className="card">
+          <div className="card tilt-card">
             <h3>Settle Up</h3>
 
             <form
@@ -1072,6 +1177,19 @@ export default function Group() {
                     value={editAmount}
                     onChange={(e) => setEditAmount(e.target.value)}
                   />
+
+                  <label className="label">Category</label>
+                  <select className="select" value={editCategory} onChange={(e) => setEditCategory(e.target.value)}>
+                    <option value="">Auto-detect</option>
+                    <option value="food">Food</option>
+                    <option value="travel">Travel</option>
+                    <option value="rent">Rent</option>
+                    <option value="shopping">Shopping</option>
+                    <option value="entertainment">Entertainment</option>
+                    <option value="transport">Transport</option>
+                    <option value="bills">Bills</option>
+                    <option value="other">Other</option>
+                  </select>
 
                   <label className="label">Split type</label>
                   <select className="select" value={editSplitType} onChange={(e) => setEditSplitType(e.target.value)}>

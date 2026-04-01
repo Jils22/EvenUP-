@@ -131,14 +131,14 @@
 # 🚀 Phase 8: Advanced Features
 
 **Goal:** Enhance product quality
-**Status:** [ ] Not Started
+**Status:** [x] Completed
 
 ### Tasks
 
-- [ ] Settle up feature (Wired in backend/frontend, needs UI icon polish)
-- [ ] Push Notifications
-- [ ] Expense categories (Visual mapping)
-- [ ] Export reports
+- [x] Settle up feature (Wired in backend/frontend, polished UI with shortcuts)
+- [x] Push Notifications (Global dropdown in Topbar)
+- [x] Expense categories (Visual mapping with Lucide icons)
+- [x] Export reports (CSV export functionality)
 
 ---
 

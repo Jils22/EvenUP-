@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { notificationsApi } from "../api/notifications";
+import { notificationsApi } from "../api/notificationsApi";
 
 export function useNotifications(limit = 50) {
   return useQuery({

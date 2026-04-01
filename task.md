@@ -32,9 +32,9 @@
 - [x] Global activity feed integration
 
 ## Phase 8: Advanced Features (Completed)
-- [x] Settle up feature UI polish (added CreditCard icons)
-- [x] Push Notifications (topbar dropdown with real data)
-- [x] Expense categories (manual selection dropdown)
+- [x] Settle up feature UI polish (CreditCard icons + "Settle" shortcuts)
+- [x] Push Notifications (topbar dropdown with real-time fetching)
+- [x] Expense categories (manual selection dropdown + visual icons)
 - [x] Export reports (CSV download functionality)
 
 ## Documentation

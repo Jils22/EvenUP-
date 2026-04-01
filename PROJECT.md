@@ -121,6 +121,7 @@ uvicorn app.main:app --reload
 npm install 
 npm start
 
+
 ### Environment Variables
 JWT_SECRET=your_secret
 MONGO_URI=your_db_uri

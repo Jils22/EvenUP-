@@ -14,8 +14,6 @@ def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
     db: Database = Depends(get_db),
 ):
-    print("CREDENTIALS:", credentials)
-    print("TOKEN:", credentials.credentials)
     token = credentials.credentials
     cred_exc = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -25,7 +23,6 @@ def get_current_user(
 
     try:
         payload = decode_access_token(token)
-        print("PAYLOAD:", payload)
         user_id = payload.get("sub")
         if not user_id:
             raise cred_exc
@@ -39,7 +36,9 @@ def get_current_user(
     if not user:
         raise cred_exc
 
-    return user 
+    # Attach string id for convenience
+    user["id"] = sid(user["_id"])
+    return user
 
 
 def _user_to_response(user):

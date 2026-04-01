@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Bell as BellIcon, Search as SearchIcon, Menu as MenuIcon } from 'lucide-react';
 import { useNotifications } from '../hooks/useNotifications';
+import { useAuth } from '../context/AuthContext';
 
 type TopbarProps = {
   onMenuClick?: () => void;
@@ -9,6 +10,7 @@ type TopbarProps = {
 export default function Topbar({ onMenuClick }: TopbarProps) {
   const [showNotifications, setShowNotifications] = useState(false);
   const { data: notifications = [] } = useNotifications(10);
+  const { user } = useAuth();
   return (
     <header className="h-20 w-full px-8 flex items-center justify-between border-b border-white/5 glass z-20">
       <button
@@ -53,7 +55,7 @@ export default function Topbar({ onMenuClick }: TopbarProps) {
                     No new notifications
                   </div>
                 ) : (
-                  notifications.map((notif) => (
+                  notifications.map((notif: any) => (
                     <div key={notif.id} className="p-4 border-b border-white/5 hover:bg-white/5 transition-colors">
                       <div className="text-sm text-white">{notif.type}</div>
                       <div className="text-xs text-muted mt-1">
@@ -69,11 +71,11 @@ export default function Topbar({ onMenuClick }: TopbarProps) {
         
         <div className="flex items-center gap-3 pl-6 border-l border-white/10">
           <div className="text-right hidden md:block">
-            <p className="text-sm font-medium text-white">Alex Morgan</p>
-            <p className="text-xs text-muted">Premium Member</p>
+            <p className="text-sm font-medium text-white">{user?.name || user?.email || 'User'}</p>
+            <p className="text-xs text-muted">{user?.email || ''}</p>
           </div>
-          <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-primary/30">
-            <img src="https://i.pravatar.cc/150?u=alex" alt="User Avatar" className="w-full h-full object-cover" />
+          <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-primary/30 bg-primary/20 flex items-center justify-center text-white font-bold text-sm">
+            {user?.name ? user.name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2) : 'U'}
           </div>
         </div>
       </div>

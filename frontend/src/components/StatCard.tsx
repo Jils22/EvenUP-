@@ -1,6 +1,7 @@
 import React from 'react';
 import { cn } from '../lib/utils';
 import { LucideIcon } from 'lucide-react';
+import { AnimatedNumber } from './ui/AnimatedNumber';
 
 interface StatCardProps extends React.HTMLAttributes<HTMLDivElement> {
   title: string;
@@ -23,9 +24,10 @@ export function StatCard({
   ...props 
 }: StatCardProps) {
   return (
+    <div className={cn("tilt-card-container", className)}>
     <div 
       className={cn(
-        "glass border border-border-soft p-6 rounded-[20px] flex flex-col gap-3 transition-transform hover:-translate-y-1 hover:shadow-2xl", 
+        "glass border border-border-soft p-6 rounded-[20px] flex flex-col gap-3 tilt-card", 
         className
       )}
       {...props}
@@ -41,7 +43,11 @@ export function StatCard({
       
       <div className="flex items-baseline gap-3">
         <span className={cn("text-3xl font-bold tracking-tight", valueColor)}>
-          {value}
+          {typeof value === 'number' ? (
+            <AnimatedNumber value={value} />
+          ) : (
+            value
+          )}
         </span>
         
         {trend && (
@@ -55,6 +61,7 @@ export function StatCard({
           </span>
         )}
       </div>
+    </div>
     </div>
   );
 }

@@ -32,6 +32,7 @@ apiClient.interceptors.response.use(
     if (err.response?.status === 401) {
       localStorage.removeItem("evenup_auth_token");
       window.dispatchEvent(new Event("auth_unauthorized"));
+      window.location.href = '/login';
     }
     return Promise.reject(customError);
   }
@@ -41,16 +42,15 @@ apiClient.interceptors.response.use(
 // Legacy fetch-based client — used by Group.jsx and other .jsx files
 // ────────────────────────────────────────────────────────────────
 export function getToken() {
-  return localStorage.getItem("access_token");
+  return localStorage.getItem("evenup_auth_token");
 }
 
-
 export function setToken(token) {
-  localStorage.setItem("access_token", token);
+  localStorage.setItem("evenup_auth_token", token);
 }
 
 export function clearToken() {
-  localStorage.removeItem("access_token");
+  localStorage.removeItem("evenup_auth_token");
 }
 
 /**

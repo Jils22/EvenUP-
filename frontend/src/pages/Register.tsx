@@ -1,102 +1,142 @@
-import React from 'react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
+import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { authApi } from '../api/auth';
 import { useAuth } from '../context/AuthContext';
-import { PrimaryButton } from '../components/ui/Button';
-
-const registerSchema = z.object({
-  name: z.string().min(2, 'Name must be at least 2 characters'),
-  email: z.string().email('Invalid email address'),
-  password: z.string().min(6, 'Password must be at least 6 characters'),
-});
-
-type RegisterForm = z.infer<typeof registerSchema>;
+import { Eye, EyeOff, Loader2, Zap } from 'lucide-react';
 
 export default function Register() {
   const navigate = useNavigate();
   const { login } = useAuth();
-  const [error, setError] = React.useState<string | null>(null);
 
-  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<RegisterForm>({
-    resolver: zodResolver(registerSchema)
-  });
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
-  const onSubmit = async (data: RegisterForm) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+
+    if (!name.trim()) { setError('Please enter your name'); return; }
+    if (!email.trim()) { setError('Please enter your email'); return; }
+    if (password.length < 6) { setError('Password must be at least 6 characters'); return; }
+
     setError(null);
+    setLoading(true);
+
     try {
-      const response = await authApi.register(data);
-      login(response.token, response.user);
+      const res = await fetch('http://127.0.0.1:8000/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: name.trim(), email: email.trim().toLowerCase(), password }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data?.detail || 'Failed to create account');
+        setLoading(false);
+        return;
+      }
+
+      localStorage.setItem('evenup_auth_token', data.token);
+      login(data.token, data.user);
       navigate('/dashboard', { replace: true });
-    } catch (err: any) {
-      setError(err.message || 'Failed to create account');
+    } catch (err) {
+      setError('Could not connect to server. Is the backend running?');
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-background flex flex-col justify-center py-12 sm:px-6 lg:px-8">
-      <div className="sm:mx-auto sm:w-full sm:max-w-md text-center">
-        <div className="w-12 h-12 mx-auto rounded-xl bg-gradient-to-br from-primary to-purple-700 flex items-center justify-center font-bold text-white shadow-lg shadow-primary/20 text-2xl mb-6">
-          E
-        </div>
-        <h2 className="text-3xl font-extrabold text-white tracking-tight">Create your account</h2>
-        <p className="mt-2 text-sm text-secondary">
-          Already have an account?{' '}
-          <Link to="/login" className="font-medium text-primary hover:text-white transition-colors">
-            Sign in
-          </Link>
-        </p>
-      </div>
+    <div className="min-h-screen bg-background relative overflow-hidden flex items-center justify-center p-4">
+      <div className="absolute top-0 left-0 w-[600px] h-[600px] bg-primary/15 rounded-full blur-[140px] -translate-x-1/2 -translate-y-1/2 pointer-events-none" />
+      <div className="absolute bottom-0 right-0 w-[500px] h-[500px] bg-purple-700/10 rounded-full blur-[120px] translate-x-1/3 translate-y-1/3 pointer-events-none" />
 
-      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="glass py-8 px-4 shadow sm:rounded-[20px] sm:px-10 border border-border-soft">
-          <form className="space-y-6" onSubmit={handleSubmit(onSubmit)}>
-            
+      <div className="w-full max-w-md relative z-10">
+        <div className="text-center mb-10">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-primary to-purple-700 shadow-[0_0_40px_rgba(192,143,245,0.5)] mb-5">
+            <Zap className="w-8 h-8 text-white" fill="white" />
+          </div>
+          <h1 className="text-4xl font-extrabold text-white tracking-tight">Create account</h1>
+          <p className="mt-2 text-secondary">Join <span className="text-white font-semibold">EvenUP</span> and split smarter</p>
+        </div>
+
+        <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-8 shadow-2xl">
+          <form onSubmit={handleSubmit} noValidate className="space-y-5">
+
             {error && (
-              <div className="p-3 rounded-xl bg-danger/10 border border-danger/20 text-danger text-sm text-center">
-                {error}
+              <div className="flex items-center gap-3 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
+                <span className="shrink-0 text-lg">⚠️</span>
+                <span>{error}</span>
               </div>
             )}
 
-            <div>
-              <label className="block text-sm font-medium text-secondary mb-2">Full Name</label>
-              <input 
-                {...register('name')}
-                type="text" 
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-primary/50 transition-colors"
+            <div className="space-y-2">
+              <label htmlFor="name" className="block text-sm font-medium text-white/70">Full Name</label>
+              <input
+                id="name"
+                type="text"
+                autoComplete="name"
+                value={name}
+                onChange={e => setName(e.target.value)}
                 placeholder="Alex Morgan"
+                disabled={loading}
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder:text-white/25 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-all disabled:opacity-50"
               />
-              {errors.name && <p className="mt-1 text-xs text-danger">{errors.name.message}</p>}
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-secondary mb-2">Email address</label>
-              <input 
-                {...register('email')}
-                type="email" 
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-primary/50 transition-colors"
+            <div className="space-y-2">
+              <label htmlFor="email" className="block text-sm font-medium text-white/70">Email address</label>
+              <input
+                id="email"
+                type="email"
+                autoComplete="email"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
                 placeholder="you@example.com"
+                disabled={loading}
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder:text-white/25 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-all disabled:opacity-50"
               />
-              {errors.email && <p className="mt-1 text-xs text-danger">{errors.email.message}</p>}
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-secondary mb-2">Password</label>
-              <input 
-                {...register('password')}
-                type="password" 
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-primary/50 transition-colors"
-                placeholder="••••••••"
-              />
-              {errors.password && <p className="mt-1 text-xs text-danger">{errors.password.message}</p>}
+            <div className="space-y-2">
+              <label htmlFor="password" className="block text-sm font-medium text-white/70">Password</label>
+              <div className="relative">
+                <input
+                  id="password"
+                  type={showPassword ? 'text' : 'password'}
+                  autoComplete="new-password"
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  placeholder="Min. 6 characters"
+                  disabled={loading}
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 pr-12 text-white placeholder:text-white/25 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-all disabled:opacity-50"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(v => !v)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-white/40 hover:text-white transition-colors"
+                  tabIndex={-1}
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
             </div>
 
-            <PrimaryButton className="w-full" type="submit" isLoading={isSubmitting}>
-              Create account
-            </PrimaryButton>
-            
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full flex items-center justify-center gap-2 py-3.5 px-6 rounded-xl bg-gradient-to-r from-primary to-purple-600 text-white font-semibold text-base shadow-[0_0_30px_rgba(192,143,245,0.4)] hover:shadow-[0_0_40px_rgba(192,143,245,0.6)] hover:scale-[1.01] active:scale-[0.99] transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed mt-2"
+            >
+              {loading ? <><Loader2 className="w-5 h-5 animate-spin" /> Creating account…</> : 'Create account'}
+            </button>
+
+            <p className="text-center text-sm text-white/40 pt-2">
+              Already have an account?{' '}
+              <Link to="/login" className="text-primary hover:text-white font-medium transition-colors">Sign in</Link>
+            </p>
           </form>
         </div>
       </div>

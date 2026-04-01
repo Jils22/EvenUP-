@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
-import { activityApi } from '../api/activity';
-import { groupsApi } from '../api/groups';
+import { activityApi } from '../api/activityApi';
+import { groupsApi } from '../api/groupsApi';
 
 export function useGroupActivity(groupId: string) {
   return useQuery({

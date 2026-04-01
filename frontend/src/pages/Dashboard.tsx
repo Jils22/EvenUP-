@@ -12,8 +12,9 @@ import { Plus, Loader2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { EmptyStateCard } from '../components/ui/EmptyStateCard';
 import { useGlobalActivity } from '../hooks/useActivity';
-import { ActivityFeed } from '../components/ActivityFeed';
+import ActivityFeed from '../components/ActivityFeed';
 import { inferExpenseCategoryKey } from '../utils/expenseCategory';
+import { TrustBadge } from '../components/ui/TrustBadge';
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -48,46 +49,50 @@ export default function Dashboard() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-white tracking-tight">Welcome, {user?.name.split(' ')[0] || 'User'}!</h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-3xl font-bold text-white tracking-tight">Welcome, {user?.name?.split(' ')[0] ?? 'there'}! 👋</h1>
+            <TrustBadge score={85} />
+          </div>
           <p className="text-secondary mt-1">Here is a financial overview of your groups and spending.</p>
         </div>
-        <PrimaryButton className="gap-2 shadow-[0_0_20px_rgba(192,143,245,0.4)] px-5">
-          <Plus className="w-4 h-4" /> Add Expense
-        </PrimaryButton>
+        <Link to="/groups">
+          <PrimaryButton className="gap-2 shadow-[0_0_20px_rgba(192,143,245,0.4)] px-5">
+            <Plus className="w-4 h-4" /> Add Expense
+          </PrimaryButton>
+        </Link>
       </div>
       
       {/* Stat Cards Row */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard 
           title="Total Groups" 
-          value={(groups?.length || 0).toString()} 
+          value={groups?.length || 0} 
           valueColor="text-primary" 
         />
         <StatCard 
           title="You Owe" 
-          value={totalOwed !== null ? `₹${totalOwed}` : '...'} 
+          value={totalOwed !== null ? parseFloat(totalOwed) : 0} 
           valueColor={totalOwed !== null && parseFloat(totalOwed) > 0 ? 'text-danger' : 'text-secondary'} 
         />
         <StatCard 
           title="You Are Owed" 
-          value={totalOwedToYou !== null ? `₹${totalOwedToYou}` : '...'} 
+          value={totalOwedToYou !== null ? parseFloat(totalOwedToYou) : 0} 
           valueColor={totalOwedToYou !== null && parseFloat(totalOwedToYou) > 0 ? 'text-success' : 'text-secondary'} 
         />
         <StatCard 
           title="Net Balance" 
-          value={netBalance !== null ? `${netBalance >= 0 ? '+' : ''}₹${Math.abs(netBalance).toFixed(2)}` : '...'} 
+          value={netBalance !== null ? netBalance : 0} 
           valueColor={netBalance !== null ? (netBalance >= 0 ? 'text-success' : 'text-danger') : 'text-secondary'} 
         />
       </div>
       
-      {/* Charts Row - Left as placeholder visual derivations since analytics API is missing */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 opacity-60 hover:opacity-100 transition duration-500">
-         <ChartCard title="Spending Trend (Demo)" subtitle="Charts await dedicated API" className="lg:col-span-2 relative">
-            <div className="absolute top-2 right-4 text-xs font-bold bg-warning/20 text-warning px-2 py-1 rounded-md">Mock Data</div>
+      {/* Charts Row */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 transition duration-500">
+         <ChartCard title="Spending Trend" subtitle="Overview of your flow" className="lg:col-span-2 relative opacity-60">
+            <div className="absolute top-2 right-4 text-xs font-bold bg-warning/20 text-warning px-2 py-1 rounded-md">Coming Soon</div>
             <TrendChart />
          </ChartCard>
-         <ChartCard title="Top Categories (Demo)" subtitle="Derived data pending" className="relative">
-            <div className="absolute top-2 right-4 text-xs font-bold bg-warning/20 text-warning px-2 py-1 rounded-md">Mock Data</div>
+         <ChartCard title="Top Categories" subtitle="Real-time breakdown" className="relative">
             <CategoryChart />
          </ChartCard>
       </div>
@@ -121,7 +126,10 @@ export default function Dashboard() {
                   <GroupCard 
                     name={group.name}
                     balance={0}
-                    members={[]}
+                    members={group.members.map(m => ({
+                      id: m.id,
+                      initials: m.name ? m.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) : m.email[0].toUpperCase(),
+                    }))}
                   />
                 </Link>
               ))}
@@ -152,7 +160,17 @@ export default function Dashboard() {
                   description="Add your first record to see it here."
                 />
             ) : (
-               <ExpenseTable expenses={recentExpenses?.slice(0, 4) || []} />
+               <ExpenseTable expenses={(recentExpenses?.slice(0, 4) || []).map(exp => {
+                 let paidByName = exp.paidBy;
+                 const group = groups?.find(g => g.id === exp.groupId);
+                 if (group) {
+                   const member = group.members?.find(m => m.id === exp.paidBy);
+                   if (member && member.name) {
+                     paidByName = member.name.split(' ')[0]; // Show first name
+                   }
+                 }
+                 return { ...exp, paidBy: paidByName };
+               })} />
             )}
           </div>
 

@@ -35,10 +35,10 @@
 ---
 
 ## ✅ Completed This Session (Phase 8)
-- **Settle up feature**: Added CreditCard icons to settlement items and "Record Payment" button for UI polish.
-- **Push Notifications**: Implemented notifications dropdown in topbar with real-time fetching from backend.
-- **Expense categories**: Added category selection dropdown in expense creation form with backend support.
-- **Export reports**: Implemented CSV export functionality for group expenses with download button.
+- **Settle up feature**: Added CreditCard icons to settlement items, "Record Payment" button, and "Settle" shortcuts in balance transfers for seamless workflow.
+- **Push Notifications**: Implemented notifications dropdown in topbar with real-time fetching from backend and `useNotifications` hook.
+- **Expense categories**: Added category selection dropdown in expense creation/edit forms and vibrant Lucide icons for visual mapping in the expense list.
+- **Export reports**: Implemented robust CSV export functionality for group expenses with one-click download.
 
 ## 📋 Where to Start Next (Phase 9: Deployment)
 1. **Deploy backend**: Choose hosting platform (Render/Railway/Heroku) and deploy FastAPI app.
