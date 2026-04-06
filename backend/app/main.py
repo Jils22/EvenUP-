@@ -19,6 +19,7 @@ from app.routes.export import router as export_router
 from app.routes.badges import router as badges_router
 from app.routes.recurring import router as recurring_router
 from app.routes.shopping import router as shopping_router
+from app.routes.ai import router as ai_router
 
 app = FastAPI(title=settings.APP_NAME, openapi_prefix="/api")
 
@@ -46,6 +47,7 @@ app.include_router(export_router)
 app.include_router(badges_router)
 app.include_router(recurring_router)
 app.include_router(shopping_router)
+app.include_router(ai_router)
 
 
 @app.get("/health")

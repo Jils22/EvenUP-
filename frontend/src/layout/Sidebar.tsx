@@ -12,6 +12,7 @@ import {
   RefreshCw,
   ShoppingCart,
   DollarSign,
+  Brain,
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useAuth } from '../context/AuthContext';
@@ -30,6 +31,7 @@ const premiumItems = [
   { name: 'Recurring',  path: '/recurring',   icon: RefreshCw },
   { name: 'Shopping',   path: '/shopping',    icon: ShoppingCart },
   { name: 'Currency',   path: '/currency',    icon: DollarSign },
+  { name: 'AI Advisor', path: '/ai-advisor',  icon: Brain },
 ];
 
 export default function Sidebar() {

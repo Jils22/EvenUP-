@@ -19,6 +19,7 @@ import Badges from './pages/Badges';
 import Recurring from './pages/Recurring';
 import ShoppingList from './pages/ShoppingList';
 import CurrencyConverter from './pages/CurrencyConverter';
+import AIAdvisor from './pages/AIAdvisor';
 
 function App() {
   return (
@@ -45,6 +46,7 @@ function App() {
             <Route path="recurring" element={<Recurring />} />
             <Route path="shopping" element={<ShoppingList />} />
             <Route path="currency" element={<CurrencyConverter />} />
+            <Route path="ai-advisor" element={<AIAdvisor />} />
           </Route>
         </Route>
       </Routes>
