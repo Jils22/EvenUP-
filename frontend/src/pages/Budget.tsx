@@ -1,17 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Pencil, Trash2, Target, TrendingUp, AlertTriangle, CheckCircle2, X, Loader2 } from 'lucide-react';
+import { budgetsApi, Budget as BudgetType } from '../api/budgetsApi';
+import { toast } from 'react-hot-toast';
 import { useAnalytics } from '../hooks/useExpenses';
 
 // Budget stored locally since backend doesn't have a budget endpoint yet
 const STORAGE_KEY = 'evenup_budgets';
 
-interface Budget {
-  id: string;
-  category: string;
-  limit: number; // in rupees
-  period: 'monthly' | 'weekly';
-  color: string;
-}
+interface Budget extends BudgetType {}
 
 const CATEGORY_OPTIONS = [
   { key: 'food', label: '🍔 Food', color: '#C08FF5' },
@@ -28,15 +24,11 @@ function categoryInfo(key: string) {
   return CATEGORY_OPTIONS.find(c => c.key === key) ?? { key, label: key, color: '#A8B3C7' };
 }
 
-function loadBudgets(): Budget[] {
-  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); } catch { return []; }
-}
-function saveBudgets(b: Budget[]) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(b));
-}
+// Removed legacy storage functions
 
 export default function Budget() {
-  const [budgets, setBudgets] = useState<Budget[]>(loadBudgets);
+  const [budgets, setBudgets] = useState<Budget[]>([]);
+  const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
 
@@ -47,6 +39,22 @@ export default function Budget() {
 
   // Real spend data from analytics
   const { data: analytics, isLoading: analyticsLoading } = useAnalytics();
+
+  useEffect(() => {
+    fetchBudgets();
+  }, []);
+
+  async function fetchBudgets() {
+    setLoading(true);
+    try {
+      const data = await budgetsApi.getBudgets();
+      setBudgets(data);
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to load budgets');
+    } finally {
+      setLoading(false);
+    }
+  }
 
   // Build a map of category → actual spend (in rupees)
   const spendMap: Record<string, number> = {};
@@ -72,36 +80,35 @@ export default function Budget() {
     setShowForm(true);
   }
 
-  function saveBudget() {
+  async function saveBudget() {
     const limit = parseFloat(formLimit);
     if (!formCategory || isNaN(limit) || limit <= 0) return;
 
     const info = categoryInfo(formCategory);
-    if (editingId) {
-      const updated = budgets.map(b =>
-        b.id === editingId ? { ...b, category: formCategory, limit, period: formPeriod, color: info.color } : b
-      );
-      setBudgets(updated);
-      saveBudgets(updated);
-    } else {
-      const newBudget: Budget = {
-        id: Date.now().toString(),
-        category: formCategory,
-        limit,
-        period: formPeriod,
-        color: info.color,
-      };
-      const updated = [...budgets, newBudget];
-      setBudgets(updated);
-      saveBudgets(updated);
+    try {
+      if (editingId) {
+        await budgetsApi.updateBudget(editingId, { category: formCategory, limit, period: formPeriod, color: info.color });
+        toast.success('Budget updated');
+      } else {
+        await budgetsApi.createBudget({ category: formCategory, limit, period: formPeriod, color: info.color });
+        toast.success('Budget created');
+      }
+      await fetchBudgets();
+      setShowForm(false);
+    } catch (e: any) {
+      toast.error(e.message || 'Error saving budget');
     }
-    setShowForm(false);
   }
 
-  function deleteBudget(id: string) {
-    const updated = budgets.filter(b => b.id !== id);
-    setBudgets(updated);
-    saveBudgets(updated);
+  async function deleteBudget(id: string) {
+    if (!confirm('Are you sure?')) return;
+    try {
+      await budgetsApi.deleteBudget(id);
+      toast.success('Budget deleted');
+      await fetchBudgets();
+    } catch (e: any) {
+      toast.error(e.message || 'Error deleting budget');
+    }
   }
 
   const totalBudgetLimit = budgets.reduce((s, b) => s + b.limit, 0);
@@ -163,7 +170,7 @@ export default function Budget() {
       </div>
 
       {/* Budget Cards */}
-      {analyticsLoading ? (
+      {(analyticsLoading || loading) ? (
         <div className="flex justify-center py-20">
           <Loader2 className="w-8 h-8 text-primary animate-spin" />
         </div>

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Eye, EyeOff, Loader2, Zap } from 'lucide-react';
+import { apiClient } from '../api/client';
 
 export default function Register() {
   const navigate = useNavigate();
@@ -25,25 +26,18 @@ export default function Register() {
     setLoading(true);
 
     try {
-      const res = await fetch('http://127.0.0.1:8000/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: name.trim(), email: email.trim().toLowerCase(), password }),
+      const res = await apiClient.post('/auth/register', { 
+        name: name.trim(), 
+        email: email.trim().toLowerCase(), 
+        password 
       });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        setError(data?.detail || 'Failed to create account');
-        setLoading(false);
-        return;
-      }
+      const data = res.data;
 
       localStorage.setItem('evenup_auth_token', data.token);
       login(data.token, data.user);
       navigate('/dashboard', { replace: true });
-    } catch (err) {
-      setError('Could not connect to server. Is the backend running?');
+    } catch (err: any) {
+      setError(err.message || 'Failed to create account');
     } finally {
       setLoading(false);
     }

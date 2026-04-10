@@ -7,6 +7,7 @@ from app.core.auth import get_current_user
 from app.db.deps import get_db
 from app.services.balance_service import calculate_group_balances
 from app.utils.mongo_ids import oid, sid
+from app.services.expense_service import expense_to_out
 
 router = APIRouter(prefix="/users", tags=["users"])
 pwd_ctx = CryptContext(schemes=["bcrypt"], deprecated="auto")

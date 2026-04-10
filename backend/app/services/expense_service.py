@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal, ROUND_HALF_UP
 from typing import Any, Dict, List
 
@@ -123,6 +123,15 @@ def expense_to_out(e: Dict[str, Any]) -> ExpenseOut:
             {"user_id": sid(s["user_id"]), "share_minor": int(s["share_minor"])}
             for s in e.get("splits", [])
         ],
+        category=e.get("category"),
+        # Consensus fields
+        status=e.get("status", "approved"),
+        approvals=[
+            {"user_id": sid(a["user_id"]), "vote": a["vote"], "voted_at": a["voted_at"]}
+            for a in e.get("approvals", [])
+        ],
+        required_approvals=e.get("required_approvals", 0),
+        expires_at=e.get("expires_at"),
     )
 
 
@@ -146,6 +155,11 @@ def create_expense_service(db, group_id: str, current_user: dict, payload: Expen
     split_type = payload.split_type
     now = datetime.now(timezone.utc)
 
+    # Determine which members need to vote (everyone except the creator)
+    member_ids = group.get("member_ids", [])
+    other_members = [m for m in member_ids if m != me_oid]
+    needs_consensus = len(other_members) > 0
+
     doc: Dict[str, Any] = {
         "group_id": group_oid,
         "title": payload.title,
@@ -155,6 +169,11 @@ def create_expense_service(db, group_id: str, current_user: dict, payload: Expen
         "created_at": now,
         "updated_at": now,
         "category": payload.category,
+        # Consensus fields
+        "status": "pending" if needs_consensus else "approved",
+        "approvals": [],
+        "required_approvals": len(other_members),
+        "expires_at": now + timedelta(hours=48) if needs_consensus else None,
     }
 
     if split_type == "equal":
@@ -225,18 +244,35 @@ def create_expense_service(db, group_id: str, current_user: dict, payload: Expen
         after={k: created.get(k) for k in ["title", "amount_minor", "paid_by", "split_type", "splits", "percents_config"]},
     )
 
-    notify_users(
-        db,
-        user_ids=expense_user_oids(created),
-        notif_type="expense_created",
-        group_id=group_oid,
-        data={
-            "expense_id": sid(created["_id"]),
-            "title": created["title"],
-            "amount_minor": int(created["amount_minor"]),
-            "paid_by": sid(created["paid_by"]),
-        },
-    )
+    if needs_consensus:
+        # Notify all OTHER members that a new expense awaits their approval
+        notify_users(
+            db,
+            user_ids=other_members,
+            notif_type="expense_pending_approval",
+            group_id=group_oid,
+            data={
+                "expense_id": sid(created["_id"]),
+                "title": created["title"],
+                "amount_minor": int(created["amount_minor"]),
+                "paid_by": sid(created["paid_by"]),
+                "required_approvals": len(other_members),
+            },
+        )
+    else:
+        # Solo group — immediately notify the creator it went live
+        notify_users(
+            db,
+            user_ids=[me_oid],
+            notif_type="expense_created",
+            group_id=group_oid,
+            data={
+                "expense_id": sid(created["_id"]),
+                "title": created["title"],
+                "amount_minor": int(created["amount_minor"]),
+                "paid_by": sid(created["paid_by"]),
+            },
+        )
 
     return expense_to_out(created)
 
@@ -329,6 +365,12 @@ def update_expense_service(db, group_id: str, expense_id: str, current_user: dic
     else:
         raise HTTPException(status_code=400, detail="Invalid split_type")
 
+    # If the expense was still pending, editing it resets all votes
+    if expense.get("status") == "pending":
+        update_doc["approvals"] = []
+        # Also reset expires_at to give members fresh 48 h
+        update_doc["expires_at"] = datetime.now(timezone.utc) + timedelta(hours=48)
+
     db["expenses"].update_one({"_id": expense_oid, "group_id": group_oid}, {"$set": update_doc})
 
     updated = require_expense_in_group(db, group_oid, expense_oid)
@@ -366,10 +408,11 @@ def update_expense_service(db, group_id: str, expense_id: str, current_user: dic
         after=after,
     )
 
+    notif_type_edit = "expense_pending_reset" if expense.get("status") == "pending" else "expense_updated"
     notify_users(
         db,
         user_ids=expense_user_oids(updated),
-        notif_type="expense_updated",
+        notif_type=notif_type_edit,
         group_id=group_oid,
         data={
             "expense_id": sid(updated["_id"]),

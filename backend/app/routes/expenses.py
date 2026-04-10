@@ -25,7 +25,19 @@ def list_expenses(group_id: str, db=Depends(get_db), current_user=Depends(get_cu
     me_oid = oid(current_user["id"])
     require_group_member(db, group_oid, me_oid)
 
-    docs = list(db["expenses"].find({"group_id": group_oid}).sort([("_id", -1)]))
+    # Only approved expenses appear in the ledger.
+    # Legacy documents without a "status" field are also included (backward-compat).
+    docs = list(
+        db["expenses"]
+        .find({
+            "group_id": group_oid,
+            "$or": [
+                {"status": "approved"},
+                {"status": {"$exists": False}},
+            ],
+        })
+        .sort([("_id", -1)])
+    )
     return [expense_to_out(e) for e in docs]
 
 

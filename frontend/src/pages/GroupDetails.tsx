@@ -7,6 +7,7 @@ import { PrimaryButton, SecondaryButton } from '../components/ui/Button';
 import { AvatarStack } from '../components/ui/AvatarStack';
 import { ArrowLeft, Download, Loader2, GitFork } from 'lucide-react';
 import { useToast } from '../context/ToastContext';
+import { expensesApi } from '../api/expensesApi';
 
 export default function GroupDetails() {
   const { id } = useParams<{ id: string }>();
@@ -35,20 +36,19 @@ export default function GroupDetails() {
 
   const handleExport = async () => {
     try {
-      const token = localStorage.getItem('evenup_auth_token');
-      const res = await fetch(`http://127.0.0.1:8000/groups/${id}/export`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      if (!res.ok) throw new Error(`Status ${res.status}`);
-      const blob = await res.blob();
+      const blob = await expensesApi.exportExpenses(id);
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
       a.download = `${group?.name || id}_expenses.csv`;
-      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      document.body.appendChild(a); 
+      a.click(); 
+      document.body.removeChild(a);
       URL.revokeObjectURL(url);
       toast.success('CSV exported!');
-    } catch (e: any) { toast.error('Export failed: ' + e.message); }
+    } catch (e: any) { 
+      toast.error('Export failed: ' + (e.message || 'Unknown error')); 
+    }
   };
 
   if (groupLoading) return (

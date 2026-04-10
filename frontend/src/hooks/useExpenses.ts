@@ -58,3 +58,10 @@ export function useDeleteExpense() {
     },
   });
 }
+
+export function useAIInsights() {
+  return useQuery({
+    queryKey: ['ai-insights'],
+    queryFn: () => expensesApi.getAIInsights(),
+  });
+}

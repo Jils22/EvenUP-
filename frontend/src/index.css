@@ -1,6 +1,6 @@
 @import "tailwindcss";
 
-@theme {
+:root {
   --color-background: #091428;
   --color-sidebar: #081223;
   --color-card: #101C36;
@@ -11,6 +11,45 @@
   --color-secondary: #A8B3C7;
   --color-muted: #6F7D97;
   --color-border-soft: rgba(255, 255, 255, 0.08);
+}
+
+[data-theme='cyberpunk'] {
+  --color-background: #0D0221;
+  --color-sidebar: #050110;
+  --color-card: #160D33;
+  --color-primary: #00FFCC;
+  --color-success: #39FF14;
+  --color-warning: #F4D35E;
+  --color-danger: #FF0055;
+  --color-secondary: #8E9AAF;
+  --color-muted: #4B4E6D;
+  --color-border-soft: rgba(0, 255, 204, 0.15);
+}
+
+[data-theme='gold'] {
+  --color-background: #0F0F0F;
+  --color-sidebar: #080808;
+  --color-card: #1A1A1A;
+  --color-primary: #D4AF37;
+  --color-success: #85BB65;
+  --color-warning: #EBCB8B;
+  --color-danger: #BF616A;
+  --color-secondary: #D8DEE9;
+  --color-muted: #4C566A;
+  --color-border-soft: rgba(212, 175, 55, 0.2);
+}
+
+@theme {
+  --color-background: var(--color-background);
+  --color-sidebar: var(--color-sidebar);
+  --color-card: var(--color-card);
+  --color-primary: var(--color-primary);
+  --color-success: var(--color-success);
+  --color-warning: var(--color-warning);
+  --color-danger: var(--color-danger);
+  --color-secondary: var(--color-secondary);
+  --color-muted: var(--color-muted);
+  --color-border-soft: var(--color-border-soft);
   --font-sans: "Inter", sans-serif;
 }
 @tailwind components;
@@ -39,7 +78,16 @@
 
 @layer utilities {
   .glass {
-    @apply bg-card/80 backdrop-blur-md border border-white/5 shadow-xl;
+    @apply bg-card/80 backdrop-blur-md border border-border-soft transition-all duration-300;
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+  }
+  
+  [data-theme='cyberpunk'] .glass {
+    box-shadow: 0 4px 15px 0 rgba(0, 255, 204, 0.15);
+  }
+  
+  [data-theme='gold'] .glass {
+    box-shadow: 0 4px 15px 0 rgba(212, 175, 55, 0.1);
   }
   
   .glass-sidebar {

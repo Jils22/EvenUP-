@@ -20,5 +20,10 @@ export const groupsApi = {
   addMember: async (groupId: string, email: string): Promise<Group> => {
     const { data } = await apiClient.post<Group>(`/groups/${groupId}/members`, { email });
     return data;
+  },
+
+  listMembers: async (groupId: string): Promise<any[]> => {
+    const { data } = await apiClient.get<any[]>(`/groups/${groupId}/members`);
+    return data;
   }
 };

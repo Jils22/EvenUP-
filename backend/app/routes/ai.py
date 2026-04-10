@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends
 from app.db.deps import get_db
 from app.core.auth import get_current_user
 from app.utils.mongo_ids import object_id as oid, sid
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from collections import defaultdict
 
 router = APIRouter(prefix="/ai", tags=["AI Advisor"])
@@ -82,6 +82,30 @@ def _build_analytics(db, me_oid):
         r = upcoming[0]
         next_bill = {"name": r.get("title", "Bill"), "amount": r.get("amount_minor", 0) / 100}
 
+    # Velocity (Spend speed)
+    seven_days_ago = now - timedelta(days=7)
+    thirty_days_ago = now - timedelta(days=30)
+    
+    last_7_days_spend = 0
+    last_30_days_spend = 0
+    
+    for exp in expenses:
+        share = next((s.get("share_minor", 0) for s in exp.get("splits", []) if s["user_id"] == me_oid), 0)
+        created = exp.get("created_at")
+        if not created or not isinstance(created, datetime): continue
+        created = created.replace(tzinfo=timezone.utc)
+        
+        if created >= seven_days_ago:
+            last_7_days_spend += share
+        if created >= thirty_days_ago:
+            last_30_days_spend += share
+
+    # Average weekly spend over last 30 days
+    avg_weekly_spend = last_30_days_spend / 4.28 if last_30_days_spend > 0 else 0
+    velocity_pct = 0
+    if avg_weekly_spend > 0:
+        velocity_pct = ((last_7_days_spend - avg_weekly_spend) / avg_weekly_spend) * 100
+
     return {
         "cat_totals": dict(cat_totals),
         "top_cat": top_cat,
@@ -93,6 +117,8 @@ def _build_analytics(db, me_oid):
         "max_owe_amount": owe_map.get(max_owe_id, 0) if max_owe_id else 0,
         "top_expense": top_expense,
         "next_bill": next_bill,
+        "velocity_pct": velocity_pct,
+        "is_fast": velocity_pct > 15,
     }
 
 
@@ -149,6 +175,16 @@ def get_insights(db=Depends(get_db), current_user=Depends(get_current_user)):
             "action_route": "/recurring",
         })
 
+    if d["is_fast"]:
+        insights.append({
+            "type": "warning",
+            "icon": "⚡",
+            "title": "Spending Velocity Alert",
+            "body": f"Your spending is {d['velocity_pct']:.0f}% higher this week than your average. Consider cooling down on non-essential categories like {d['top_cat']}.",
+            "action": "View Budget",
+            "action_route": "/budget",
+        })
+
     if not insights:
         insights.append({
             "type": "success",
@@ -168,6 +204,7 @@ def get_insights(db=Depends(get_db), current_user=Depends(get_current_user)):
             "month_spend": d["month_spend"],
             "top_group": d["top_group_name"],
             "top_categories": [{"name": c, "amount_minor": v} for c, v in top_cats],
+            "velocity": d["velocity_pct"],
         },
     }
 

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Eye, EyeOff, Loader2, Zap } from 'lucide-react';
+import { apiClient } from '../api/client';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -23,32 +24,19 @@ export default function Login() {
     setLoading(true);
 
     try {
-      // Build form-encoded body exactly as FastAPI expects
       const body = new URLSearchParams();
       body.set('username', email.trim().toLowerCase());
       body.set('password', password);
 
-      const res = await fetch('http://127.0.0.1:8000/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: body.toString(),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        setError(data?.detail || 'Invalid email or password');
-        setLoading(false);
-        return;
-      }
+      const res = await apiClient.post('/auth/login', body);
+      const data = res.data;
 
       // Token written to localStorage BEFORE any React state update or navigation
-      // so that all subsequent API calls already have the token available
       localStorage.setItem('evenup_auth_token', data.token);
       login(data.token, data.user);
       navigate('/dashboard', { replace: true });
-    } catch (err) {
-      setError('Could not connect to server. Is the backend running?');
+    } catch (err: any) {
+      setError(err.message || 'Invalid email or password');
     } finally {
       setLoading(false);
     }

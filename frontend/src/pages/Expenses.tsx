@@ -1,7 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useGroups } from '../hooks/useGroups';
-import { useGroupExpenses } from '../hooks/useExpenses';
+import { useGroupExpenses, useAnalytics } from '../hooks/useExpenses';
+import { expensesApi } from '../api/expensesApi';
 import { ExpenseTable } from '../components/ExpenseTable';
 import { EmptyStateCard } from '../components/ui/EmptyStateCard';
 import { PrimaryButton, SecondaryButton } from '../components/ui/Button';
@@ -117,20 +118,19 @@ export default function Expenses() {
   const handleExport = async () => {
     if (!selectedGroupId) return toast.error('No group selected');
     try {
-      const token = localStorage.getItem('evenup_auth_token');
-      const res = await fetch(`http://127.0.0.1:8000/groups/${selectedGroupId}/export`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      if (!res.ok) throw new Error(`Export failed: ${res.status}`);
-      const blob = await res.blob();
+      const blob = await expensesApi.exportExpenses(selectedGroupId);
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
       a.download = `${selectedGroup?.name || selectedGroupId}_expenses.csv`;
-      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      document.body.appendChild(a); 
+      a.click(); 
+      document.body.removeChild(a);
       URL.revokeObjectURL(url);
       toast.success('CSV exported!');
-    } catch (e: any) { toast.error(e.message); }
+    } catch (e: any) { 
+      toast.error(e.message || 'Export failed'); 
+    }
   };
 
   const active = hasActiveFilters(filters);

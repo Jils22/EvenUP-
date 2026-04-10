@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { Brain, Send, Loader2, TrendingUp, AlertTriangle, CheckCircle, Info, ChevronRight } from 'lucide-react';
+import { Brain, Send, Loader2, TrendingUp, AlertTriangle, CheckCircle, Info, ChevronRight, Zap, TrendingDown } from 'lucide-react';
 import { apiClient } from '../api/client';
 
 // ── API ──────────────────────────────────────────────────────────────────────
@@ -23,8 +23,8 @@ function InsightCard({ insight }: { insight: Insight }) {
   const cfg = TYPE_CONFIG[insight.type] ?? TYPE_CONFIG.info;
   const Icon = cfg.Icon;
   return (
-    <div className={`glass border ${cfg.border} ${cfg.bg} rounded-2xl p-5 flex gap-4`}>
-      <span className="text-2xl shrink-0 mt-0.5">{insight.icon}</span>
+    <div className={`glass border ${cfg.border} ${cfg.bg} rounded-2xl p-5 flex gap-4 transition-all hover:scale-[1.01]`}>
+      <span className="text-2xl shrink-0 mt-0.5">{insight.icon || '✨'}</span>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-1">
           <Icon className="w-3.5 h-3.5 opacity-60" />
@@ -111,11 +111,19 @@ export default function AIAdvisor() {
           {[
             { label: 'You Owe', value: `₹${(summary.total_owed / 100).toFixed(0)}`, color: summary.total_owed > 0 ? 'text-danger' : 'text-success' },
             { label: 'Owed to You', value: `₹${(summary.total_owed_to_you / 100).toFixed(0)}`, color: 'text-success' },
-            { label: 'This Month', value: `₹${(summary.month_spend / 100).toFixed(0)}`, color: 'text-primary' },
+            { 
+              label: 'Spend Velocity', 
+              value: `${summary.velocity > 0 ? '+' : ''}${summary.velocity.toFixed(0)}%`, 
+              color: summary.velocity > 15 ? 'text-danger' : summary.velocity < -5 ? 'text-success' : 'text-primary',
+              Icon: summary.velocity > 15 ? Zap : summary.velocity < -5 ? TrendingDown : TrendingUp
+            },
             { label: 'Top Group', value: summary.top_group, color: 'text-white' },
           ].map(s => (
             <div key={s.label} className="glass border border-border-soft rounded-2xl p-4 text-center">
-              <p className="text-secondary text-xs mb-1">{s.label}</p>
+              <div className="flex items-center justify-center gap-1.5 mb-1">
+                {s.Icon && <s.Icon className={`w-3 h-3 ${s.color} opacity-70`} />}
+                <p className="text-secondary text-xs">{s.label}</p>
+              </div>
               <p className={`font-bold text-lg truncate ${s.color}`}>{s.value}</p>
             </div>
           ))}
@@ -137,8 +145,13 @@ export default function AIAdvisor() {
               {insights.map((ins, i) => <InsightCard key={i} insight={ins} />)}
             </div>
           )}
-
-          {/* Top Categories */}
+        </div>
+        
+        {/* Statistics & Forecasts */}
+        <div className="space-y-4">
+          <h2 className="text-xl font-bold text-white flex items-center gap-2">
+            <Info className="w-5 h-5 text-primary" /> Spending Health
+          </h2>
           {summary?.top_categories?.length > 0 && (
             <div className="glass border border-border-soft rounded-2xl p-5">
               <h3 className="text-sm font-bold text-white mb-4">Top Spending Categories</h3>
@@ -164,6 +177,7 @@ export default function AIAdvisor() {
               </div>
             </div>
           )}
+        </div>
         </div>
 
         {/* Chat Panel */}

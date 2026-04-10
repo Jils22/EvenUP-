@@ -20,6 +20,9 @@ from app.routes.badges import router as badges_router
 from app.routes.recurring import router as recurring_router
 from app.routes.shopping import router as shopping_router
 from app.routes.ai import router as ai_router
+from app.routes.expenses_direct import router as expenses_direct_router
+from app.routes.budgets import router as budgets_router
+from app.routes.approvals import router as approvals_router
 
 app = FastAPI(title=settings.APP_NAME, openapi_prefix="/api")
 
@@ -48,6 +51,9 @@ app.include_router(badges_router)
 app.include_router(recurring_router)
 app.include_router(shopping_router)
 app.include_router(ai_router)
+app.include_router(expenses_direct_router)
+app.include_router(budgets_router)
+app.include_router(approvals_router)
 
 
 @app.get("/health")
@@ -90,6 +96,11 @@ def ensure_indexes():
     db["recurring_expenses"].create_index([("group_id", 1), ("active", 1)])
     db["recurring_expenses"].create_index([("group_id", 1), ("next_due", 1)])
     db["shopping_items"].create_index([("group_id", 1), ("_id", 1)])
+    db["budgets"].create_index([("user_id", 1), ("category", 1)], unique=True)
+
+    # Consensus / approval indexes
+    db["expenses"].create_index([("group_id", 1), ("status", 1)])
+    db["expenses"].create_index([("group_id", 1), ("status", 1), ("expires_at", 1)])
 
 
 @app.on_event("shutdown")

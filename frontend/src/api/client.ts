@@ -45,3 +45,16 @@ apiClient.interceptors.response.use(
     return Promise.reject(customError);
   }
 );
+
+// Helper for Token Management
+export function getToken() {
+  return localStorage.getItem("evenup_auth_token");
+}
+
+export function setToken(token: string) {
+  localStorage.setItem("evenup_auth_token", token);
+}
+
+export function clearToken() {
+  localStorage.removeItem("evenup_auth_token");
+}

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
@@ -15,21 +15,27 @@ import {
   CheckCircle,
   Camera,
   Sparkles,
-  Loader2
+  Loader2,
+  Clock,
+  ThumbsUp,
+  ThumbsDown,
+  Undo2,
+  ShieldAlert,
 } from "lucide-react";
 
-import { getGroup, addMember } from "../api/groups";
-import { listMembers } from "../api/members";
-import { listExpenses, createExpense, getBalances } from "../api/expenses";
-import { getActivity } from "../api/activity";
-import { getExpense } from "../api/expensedetails";
-import { updateExpense, deleteExpense } from "../api/expenseMutations";
+import { groupsApi as groupsApi_raw } from "../api/groupsApi";
+import { expensesApi as expensesApi_raw } from "../api/expensesApi";
+import { approvalsApi } from "../api/approvalsApi";
+import { getActivity } from "../api/activityApi";
 import {
   createSettlement,
   updateSettlement,
   deleteSettlement,
   listSettlements,
-} from "../api/settlements";
+} from "../api/settlementsApi";
+
+const groupsApi = groupsApi_raw;
+const expensesApi = expensesApi_raw;
 
 import ActivityFeed from "../components/ActivityFeed";
 import { cn } from "../lib/utils";
@@ -64,7 +70,61 @@ export default function Group() {
   const [activity, setActivity] = useState([]);
 
   const [inviteEmail, setInviteEmail] = useState("");
-  
+
+  // ── Consensus / Pending Expenses ─────────────────────────────────────────
+  const [pendingExpenses, setPendingExpenses] = useState([]);
+  const [votingId, setVotingId] = useState(null); // tracks which card is in-flight
+
+  async function fetchPending() {
+    try {
+      const data = await approvalsApi.getPending(groupId);
+      setPendingExpenses(Array.isArray(data) ? data : []);
+    } catch {
+      // non-fatal — group might have 0 pending expenses
+    }
+  }
+
+  async function onApprove(expenseId) {
+    setVotingId(expenseId);
+    try {
+      await approvalsApi.approve(groupId, expenseId);
+      toast.success("Approved! ✅");
+      await Promise.all([fetchPending(), refreshAll()]);
+    } catch (e) {
+      toast.error(e?.message ?? String(e));
+    } finally {
+      setVotingId(null);
+    }
+  }
+
+  async function onReject(expenseId) {
+    if (!window.confirm("Reject this expense? This will flag it as rejected for everyone.")) return;
+    setVotingId(expenseId);
+    try {
+      await approvalsApi.reject(groupId, expenseId);
+      toast.success("Expense rejected.");
+      await Promise.all([fetchPending(), refreshAll()]);
+    } catch (e) {
+      toast.error(e?.message ?? String(e));
+    } finally {
+      setVotingId(null);
+    }
+  }
+
+  async function onWithdraw(expenseId) {
+    if (!window.confirm("Withdraw this pending expense? It will be cancelled.")) return;
+    setVotingId(expenseId);
+    try {
+      await approvalsApi.withdraw(groupId, expenseId);
+      toast.success("Expense withdrawn.");
+      await fetchPending();
+    } catch (e) {
+      toast.error(e?.message ?? String(e));
+    } finally {
+      setVotingId(null);
+    }
+  }
+
   const [msg, setMsg] = useState("");
   const [err, setErr] = useState("");
   const [scanning, setScanning] = useState(false);
@@ -191,7 +251,7 @@ export default function Group() {
     closeSettlementDrawer(); // only one drawer at a time
 
     try {
-      const data = await getExpense(groupId, expenseId);
+      const data = await expensesApi.getExpense(expenseId);
       setSelectedExpenseId(expenseId);
       setSelectedExpense(data);
       resetExpenseEditState();
@@ -285,10 +345,10 @@ export default function Group() {
   async function refreshAll() {
 
     const [g, mem, exp, bal, act, sets] = await Promise.all([
-      getGroup(groupId),
-      listMembers(groupId),
-      listExpenses(groupId),
-      getBalances(groupId),
+      groupsApi.getGroup(groupId),
+      groupsApi.listMembers(groupId),
+      expensesApi.getGroupExpenses(groupId),
+      expensesApi.getBalances(groupId),
       getActivity(groupId),
       listSettlements(groupId),
     ]);
@@ -329,6 +389,9 @@ export default function Group() {
         closeExpenseDrawer();
       }
     }
+
+    // Refresh pending expenses panel in parallel
+    fetchPending();
   }
 
   useEffect(() => {
@@ -366,7 +429,7 @@ export default function Group() {
     }
 
     try {
-      await addMember(groupId, email);
+      await groupsApi.addMember(groupId, email);
       toast.success("Member added!");
       setInviteEmail("");
       await refreshAll();
@@ -503,7 +566,7 @@ export default function Group() {
         return toast.error("Invalid split type");
       }
 
-      await updateExpense(groupId, selectedExpenseId, payload);
+      await expensesApi.updateExpense(selectedExpenseId, payload);
 
       toast.success("Expense updated ✅");
       setIsEditing(false);
@@ -522,7 +585,7 @@ export default function Group() {
     if (!ok) return;
 
     try {
-      await deleteExpense(groupId, selectedExpenseId);
+      await expensesApi.deleteExpense(selectedExpenseId);
       toast.success("Expense deleted ✅");
       closeExpenseDrawer();
       await refreshAll();
@@ -544,20 +607,18 @@ export default function Group() {
     const selected = participants.map(String);
 
     if (selected.length < 2) return toast.error("Select at least 2 participants");
-    if (!selected.includes(payerId)) return toast.error("Payer must be included in participants");
+    if (!selected.includes(payerId)) return toast.error("Payer must be included in partici    try {
+      let payload = {
+        title: title.trim(),
+        amount: amt,
+        paidBy: payerId,
+        splitType: splitType,
+        category: category || undefined,
+      };
 
-    try {
       if (splitType === "equal") {
-        await createExpense(groupId, {
-          title: title.trim(),
-          amount: amt,
-          paid_by_user_id: payerId,
-          participant_user_ids: selected,
-          split_type: "equal",
-          category: category || undefined,
-        });
+        payload.participants = selected.map(uid => ({ userId: uid }));
       } else if (splitType === "exact") {
-        // ✅ Use ONLY selected participants; allow 0
         const splits = selected.map((user_id) => {
           const v = exactMap[user_id];
           const n = parseNum(v);
@@ -575,17 +636,9 @@ export default function Group() {
             `Exact split total must equal ₹${amt.toFixed(2)} (got ₹${(sumMinor / 100).toFixed(2)})`
           );
         }
-
-        await createExpense(groupId, {
-          title: title.trim(),
-          amount: amt,
-          paid_by_user_id: payerId,
-          split_type: "exact",
-          splits,
-          category: category || undefined,
-        });
+        payload.splits = splits;
+        payload.participants = selected.map(uid => ({ userId: uid }));
       } else if (splitType === "percent") {
-        // ✅ Use ONLY selected participants; allow 0
         const percents = selected.map((user_id) => {
           const v = percentMap[user_id];
           const n = parseNum(v);
@@ -599,14 +652,11 @@ export default function Group() {
         if (Math.abs(sumP - 100) > 0.01) {
           return toast.error(`Percents must total 100 (got ${sumP.toFixed(2)})`);
         }
+        payload.percents = percents;
+        payload.participants = selected.map(uid => ({ userId: uid }));
+      }
 
-        await createExpense(groupId, {
-          title: title.trim(),
-          amount: amt,
-          paid_by_user_id: payerId,
-          split_type: "percent",
-          percents,
-          category: category || undefined,
+      await expensesApi.createExpense(groupId, payload);
         });
       } else {
         return toast.error("Invalid split type");
@@ -675,13 +725,8 @@ export default function Group() {
             className="btn btn--primary"
             onClick={async () => {
               try {
-                const token = localStorage.getItem('evenup_auth_token');
-                const response = await fetch(`http://127.0.0.1:8000/groups/${groupId}/export`, {
-                  headers: { 'Authorization': `Bearer ${token}` }
-                });
-                if (!response.ok) throw new Error(`Export failed: ${response.status}`);
-                const blob = await response.blob();
-                const url = window.URL.createObjectURL(blob);
+                const blob = await expensesApi.exportExpenses(groupId);
+                const url = window.URL.createObjectURL(new Blob([blob], { type: 'text/csv' }));
                 const a = document.createElement('a');
                 a.href = url;
                 a.download = `${group?.name || 'group'}_expenses.csv`;
@@ -689,7 +734,7 @@ export default function Group() {
                 a.click();
                 document.body.removeChild(a);
                 window.URL.revokeObjectURL(url);
-                toast.success('CSV exported!');
+                toast.success('CSV exported! 📊');
               } catch (e) {
                 toast.error('Export failed: ' + (e?.message || String(e)));
               }
@@ -721,7 +766,176 @@ export default function Group() {
       <div className="gp-grid">
         {/* LEFT */}
         <div style={{ display: "grid", gap: 14 }}>
-          {/* Expenses */}
+          {/* ── Pending Expenses (Consensus Panel) ───────────────────────────── */}
+          {pendingExpenses.length > 0 && (
+            <div className="card tilt-card" style={{
+              border: "1px solid rgba(251,191,36,0.4)",
+              background: "linear-gradient(135deg, rgba(120,53,15,0.25) 0%, rgba(161,98,7,0.12) 100%)",
+              marginBottom: 0,
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
+                <ShieldAlert size={18} color="#fbbf24" />
+                <h3 style={{ margin: 0, color: "#fde68a" }}>Pending Approval</h3>
+                <span style={{
+                  background: "rgba(251,191,36,0.2)",
+                  border: "1px solid rgba(251,191,36,0.4)",
+                  color: "#fbbf24",
+                  borderRadius: 999,
+                  fontSize: 11,
+                  fontWeight: 800,
+                  padding: "2px 8px",
+                }}>
+                  {pendingExpenses.length}
+                </span>
+              </div>
+              <p className="small" style={{ opacity: 0.7, marginBottom: 14 }}>
+                These expenses need unanimous approval from all group members before they
+                appear in the ledger and affect balances.
+              </p>
+
+              <div style={{ display: "grid", gap: 12 }}>
+                {pendingExpenses.map((pe) => {
+                  const creatorName = memberById.get(pe.paid_by)?.name ?? `User#${pe.paid_by}`;
+                  const iAmCreator = pe.paid_by === currentUserId;
+                  const myVote = pe.approvals?.find((a) => a.user_id === currentUserId);
+                  const approvedCount = pe.approvals?.filter((a) => a.vote === "approved").length ?? 0;
+                  const required = pe.required_approvals ?? 0;
+                  const progress = required > 0 ? Math.min((approvedCount / required) * 100, 100) : 100;
+                  const isVoting = votingId === pe.id;
+
+                  // Compute countdown from expires_at
+                  let countdown = null;
+                  if (pe.expires_at) {
+                    const diffMs = new Date(pe.expires_at) - Date.now();
+                    if (diffMs > 0) {
+                      const h = Math.floor(diffMs / 3600000);
+                      const m = Math.floor((diffMs % 3600000) / 60000);
+                      countdown = `${h}h ${m}m`;
+                    } else {
+                      countdown = "Expiring...";
+                    }
+                  }
+
+                  return (
+                    <div
+                      key={pe.id}
+                      style={{
+                        background: "rgba(0,0,0,0.25)",
+                        border: "1px solid rgba(251,191,36,0.2)",
+                        borderRadius: 12,
+                        padding: 14,
+                      }}
+                    >
+                      {/* Header row */}
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                        <div>
+                          <div style={{ fontWeight: 800, fontSize: 15 }}>{pe.title}</div>
+                          <div className="small" style={{ opacity: 0.7 }}>
+                            ₹{money(pe.amount_minor)} · paid by {creatorName}
+                            {pe.category && <span style={{ marginLeft: 6 }}>· {pe.category}</span>}
+                          </div>
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 4, color: "#fbbf24", fontSize: 11 }}>
+                          <Clock size={12} />
+                          <span>{countdown ?? "—"}</span>
+                        </div>
+                      </div>
+
+                      {/* Progress bar */}
+                      <div style={{ margin: "10px 0 6px" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, opacity: 0.7, marginBottom: 4 }}>
+                          <span>{approvedCount} / {required} approvals</span>
+                          <span>{Math.round(progress)}%</span>
+                        </div>
+                        <div style={{ height: 6, borderRadius: 99, background: "rgba(255,255,255,0.08)" }}>
+                          <div style={{
+                            height: "100%",
+                            borderRadius: 99,
+                            width: `${progress}%`,
+                            background: progress === 100
+                              ? "linear-gradient(90deg, #22c55e, #4ade80)"
+                              : "linear-gradient(90deg, #f59e0b, #fbbf24)",
+                            transition: "width 0.5s ease",
+                          }} />
+                        </div>
+                      </div>
+
+                      {/* Voter chips */}
+                      {pe.approvals?.length > 0 && (
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 10 }}>
+                          {pe.approvals.map((a) => (
+                            <span
+                              key={a.user_id}
+                              style={{
+                                fontSize: 10,
+                                padding: "2px 7px",
+                                borderRadius: 99,
+                                fontWeight: 700,
+                                background: a.vote === "approved" ? "rgba(34,197,94,0.15)" : "rgba(239,68,68,0.15)",
+                                color: a.vote === "approved" ? "#4ade80" : "#f87171",
+                                border: `1px solid ${a.vote === "approved" ? "rgba(74,222,128,0.3)" : "rgba(248,113,113,0.3)"}`,
+                              }}
+                            >
+                              {a.vote === "approved" ? "✓" : "✗"}{" "}
+                              {memberById.get(a.user_id)?.name ?? `User#${a.user_id}`}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Action buttons */}
+                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                        {iAmCreator ? (
+                          /* Creator sees only Withdraw */
+                          <button
+                            type="button"
+                            className="btn btn--small"
+                            style={{ background: "rgba(239,68,68,0.15)", color: "#f87171", border: "1px solid rgba(248,113,113,0.3)", display: "flex", alignItems: "center", gap: 5 }}
+                            disabled={isVoting}
+                            onClick={() => onWithdraw(pe.id)}
+                          >
+                            {isVoting ? <Loader2 size={12} className="animate-spin" /> : <Undo2 size={12} />}
+                            Withdraw
+                          </button>
+                        ) : myVote ? (
+                          /* Already voted */
+                          <span style={{ fontSize: 11, opacity: 0.6, alignSelf: "center" }}>
+                            You voted: {myVote.vote === "approved" ? "✅ Approved" : "❌ Rejected"}
+                          </span>
+                        ) : (
+                          /* Non-creator who hasn't voted */
+                          <>
+                            <button
+                              type="button"
+                              className="btn btn--small"
+                              style={{ background: "rgba(34,197,94,0.15)", color: "#4ade80", border: "1px solid rgba(74,222,128,0.3)", display: "flex", alignItems: "center", gap: 5 }}
+                              disabled={isVoting}
+                              onClick={() => onApprove(pe.id)}
+                            >
+                              {isVoting ? <Loader2 size={12} className="animate-spin" /> : <ThumbsUp size={12} />}
+                              Approve
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn--small"
+                              style={{ background: "rgba(239,68,68,0.15)", color: "#f87171", border: "1px solid rgba(248,113,113,0.3)", display: "flex", alignItems: "center", gap: 5 }}
+                              disabled={isVoting}
+                              onClick={() => onReject(pe.id)}
+                            >
+                              {isVoting ? <Loader2 size={12} className="animate-spin" /> : <ThumbsDown size={12} />}
+                              Reject
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Expenses (Approved Ledger) */}
           <div className="card tilt-card" ref={expensesRef}>
             <h3>Expenses</h3>
 
@@ -892,10 +1106,13 @@ export default function Group() {
               <h3 style={{ margin: 0 }}>Add Expense</h3>
               <button 
                 type="button" 
-                className={cn("btn btn--small gap-2", scanning && "animate-pulse")}
+                className={cn(
+                  "btn btn--small gap-2", 
+                  "bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20 transition-all",
+                  scanning && "animate-pulse"
+                )}
                 onClick={onSmartScan}
                 disabled={scanning}
-                style={{ background: 'rgba(192, 143, 245, 0.1)', color: 'var(--primary)', border: '1px solid rgba(192, 143, 245, 0.2)' }}
               >
                 {scanning ? <Loader2 size={14} className="animate-spin" /> : <Camera size={14} />}
                 {scanning ? "Scanning..." : "Smart Scan"}

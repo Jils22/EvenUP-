@@ -1,14 +1,17 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { apiClient } from '../api/client';
 import { useQueryClient } from '@tanstack/react-query';
 import { useToast } from '../context/ToastContext';
 import { PrimaryButton, DangerButton } from '../components/ui/Button';
-import { Loader2, User, Lock, Trash2 } from 'lucide-react';
+import { Loader2, User, Lock, Trash2, Palette } from 'lucide-react';
+import { useTheme, AppTheme } from '../context/ThemeContext';
 
 export default function Settings() {
   const { user, logout } = useAuth();
   const queryClient = useQueryClient();
   const toast = useToast();
+  const { theme, setTheme } = useTheme();
 
   const [name, setName] = useState(user?.name || '');
   const [saving, setSaving] = useState(false);
@@ -22,16 +25,7 @@ export default function Settings() {
     if (!name.trim()) return toast.error('Name cannot be empty');
     setSaving(true);
     try {
-      const token = localStorage.getItem('evenup_auth_token');
-      const res = await fetch('http://127.0.0.1:8000/users/me', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ name: name.trim() }),
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.detail || `Error ${res.status}`);
-      }
+      await apiClient.patch('/users/me', { name: name.trim() });
       queryClient.invalidateQueries({ queryKey: ['me'] });
       toast.success('Profile updated!');
     } catch (e: any) {
@@ -48,16 +42,10 @@ export default function Settings() {
     if (pwNew !== pwConfirm) return toast.error('Passwords do not match');
     setSavingPw(true);
     try {
-      const token = localStorage.getItem('evenup_auth_token');
-      const res = await fetch('http://127.0.0.1:8000/users/me/password', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ current_password: pwCurrent, new_password: pwNew }),
+      await apiClient.patch('/users/me/password', { 
+        current_password: pwCurrent, 
+        new_password: pwNew 
       });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.detail || 'Failed to update password');
-      }
       toast.success('Password updated!');
       setPwCurrent(''); setPwNew(''); setPwConfirm('');
     } catch (e: any) {
@@ -71,12 +59,7 @@ export default function Settings() {
     const confirmed = window.confirm('Are you sure? This will permanently delete your account and all data. This cannot be undone.');
     if (!confirmed) return;
     try {
-      const token = localStorage.getItem('evenup_auth_token');
-      const res = await fetch('http://127.0.0.1:8000/users/me', {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) throw new Error('Failed to delete account');
+      await apiClient.delete('/users/me');
       logout();
       toast.success('Account deleted.');
     } catch (e: any) {
@@ -142,6 +125,50 @@ export default function Settings() {
             </button>
           </div>
         </form>
+      </div>
+
+      {/* Visual Workspace & Theming */}
+      <div className="glass border border-border-soft p-8 rounded-2xl space-y-6">
+        <div className="flex items-center gap-2 mb-1">
+          <Palette className="w-4 h-4 text-primary" />
+          <h4 className="text-white font-semibold">Visual Workspace</h4>
+        </div>
+        <p className="text-secondary text-sm font-medium">Choose a theme that matches your financial style.</p>
+        
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {[
+            { id: 'midnight', name: 'Midnight', colors: ['#091428', '#C08FF5'] },
+            { id: 'cyberpunk', name: 'Cyberpunk', colors: ['#0D0221', '#00FFCC'] },
+            { id: 'gold', name: 'Luxury Gold', colors: ['#0F0F0F', '#D4AF37'] },
+          ].map((t) => (
+            <button
+              key={t.id}
+              onClick={() => setTheme(t.id as AppTheme)}
+              className={`relative overflow-hidden group p-4 rounded-xl border transition-all text-left ${
+                theme === t.id 
+                  ? 'border-primary bg-primary/10 shadow-[0_0_20px_rgba(192,143,245,0.2)]' 
+                  : 'border-white/10 bg-white/5 hover:border-white/20'
+              }`}
+            >
+              <div className="flex items-center gap-3 mb-3">
+                <div className="flex gap-1 shrink-0">
+                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: t.colors[0] }} />
+                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: t.colors[1] }} />
+                </div>
+                <span className={`text-sm font-bold ${theme === t.id ? 'text-white' : 'text-secondary'}`}>{t.name}</span>
+              </div>
+              
+              <div className="space-y-1.5 opacity-40">
+                <div className="h-1 w-full bg-white/20 rounded-full" />
+                <div className="h-1 w-2/3 bg-white/20 rounded-full" />
+              </div>
+
+              {theme === t.id && (
+                <div className="absolute top-2 right-2 w-2 h-2 bg-primary rounded-full animate-pulse" />
+              )}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Change Password */}

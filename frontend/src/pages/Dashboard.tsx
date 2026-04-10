@@ -1,6 +1,6 @@
 import { useAuth } from '../context/AuthContext';
 import { useGroups } from '../hooks/useGroups';
-import { useGroupExpenses, useMyBalances } from '../hooks/useExpenses';
+import { useGroupExpenses, useMyBalances, useAIInsights } from '../hooks/useExpenses';
 import { StatCard } from '../components/StatCard';
 import { ChartCard } from '../components/ChartCard';
 import { GroupCard } from '../components/GroupCard';
@@ -8,7 +8,7 @@ import { ExpenseTable } from '../components/ExpenseTable';
 import { TrendChart } from '../charts/TrendChart';
 import { CategoryChart } from '../charts/CategoryChart';
 import { PrimaryButton } from '../components/ui/Button';
-import { Plus, Loader2 } from 'lucide-react';
+import { Plus, Loader2, Zap, TrendingDown, TrendingUp } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { EmptyStateCard } from '../components/ui/EmptyStateCard';
 import { useGlobalActivity } from '../hooks/useActivity';
@@ -22,6 +22,11 @@ export default function Dashboard() {
 
   // /users/me/balances → aggregate across all groups
   const { data: myBalances } = useMyBalances();
+  const { data: aiInsights } = useAIInsights();
+  
+  const velocity = aiInsights?.summary?.velocity || 0;
+  const isFast = velocity > 15;
+  const isCooling = velocity < -10;
 
   // Pick the first group to show 'Recent Expenses'
   const firstGroupId = groups?.[0]?.id || '';
@@ -52,6 +57,18 @@ export default function Dashboard() {
           <div className="flex items-center gap-3">
             <h1 className="text-3xl font-bold text-white tracking-tight">Welcome, {user?.name?.split(' ')[0] ?? 'there'}! 👋</h1>
             <TrustBadge score={85} />
+            
+            {/* Speedometer Badge */}
+            {Math.abs(velocity) > 5 && (
+              <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border animate-in fade-in slide-in-from-top-2 ${
+                isFast ? 'bg-danger/10 border-danger/20 text-danger' : 
+                isCooling ? 'bg-success/10 border-success/20 text-success' : 
+                'bg-primary/10 border-primary/20 text-primary'
+              }`}>
+                {isFast ? <Zap className="w-3 h-3" /> : isCooling ? <TrendingDown className="w-3 h-3" /> : <TrendingUp className="w-3 h-3" />}
+                {isFast ? 'Fast' : isCooling ? 'Cool' : 'Stable'} {Math.abs(velocity).toFixed(0)}%
+              </div>
+            )}
           </div>
           <p className="text-secondary mt-1">Here is a financial overview of your groups and spending.</p>
         </div>

@@ -31,8 +31,7 @@ export const expensesApi = {
   },
 
   createExpense: async (groupId: string, payload: Partial<Expense>): Promise<Expense> => {
-    // Map frontend camelCase to backend snake_case for creation
-    const backendPayload = {
+    const backendPayload: any = {
       title: payload.title,
       amount: payload.amount,
       paid_by_user_id: payload.paidBy,
@@ -40,17 +39,24 @@ export const expensesApi = {
       category: payload.category,
       participant_user_ids: payload.participants?.map(p => p.userId) || []
     };
+    if (payload.splits) backendPayload.splits = payload.splits;
+    if (payload.percents) backendPayload.percents = payload.percents;
+
     const { data } = await apiClient.post<any>(`/groups/${groupId}/expenses`, backendPayload);
     return mapExpense(data);
   },
 
-  updateExpense: async (expenseId: string, payload: Partial<Expense>): Promise<Expense> => {
-    const backendPayload = {
+  updateExpense: async (expenseId: string, payload: Partial<Expense> & { splits?: any[], percents?: any[], participant_user_ids?: string[] }): Promise<Expense> => {
+    const backendPayload: any = {
       title: payload.title,
       amount: payload.amount,
       split_type: payload.splitType,
       category: payload.category,
     };
+    if (payload.participant_user_ids) backendPayload.participant_user_ids = payload.participant_user_ids;
+    if (payload.splits) backendPayload.splits = payload.splits;
+    if (payload.percents) backendPayload.percents = payload.percents;
+
     const { data } = await apiClient.patch<any>(`/expenses/${expenseId}`, backendPayload);
     return mapExpense(data);
   },
@@ -80,5 +86,15 @@ export const expensesApi = {
   getAnalytics: async (): Promise<any> => {
     const { data } = await apiClient.get<any>(`/users/me/analytics`);
     return data;
-  }
+  },
+
+  exportExpenses: async (groupId: string): Promise<any> => {
+    const { data } = await apiClient.get(`/groups/${groupId}/export`, { responseType: 'blob' });
+    return data;
+  },
+
+  getAIInsights: async (): Promise<any> => {
+    const { data } = await apiClient.get('/ai/insights');
+    return data;
+  },
 };

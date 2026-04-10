@@ -39,7 +39,12 @@ export function CategoryChart() {
             ))}
           </Pie>
           <Tooltip 
-            contentStyle={{ backgroundColor: '#101C36', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '12px', color: '#fff' }}
+            contentStyle={{ 
+              backgroundColor: 'var(--color-card)', 
+              border: '1px solid var(--color-border-soft)', 
+              borderRadius: '12px', 
+              color: '#fff' 
+            }}
             itemStyle={{ color: '#fff' }}
             formatter={(value: any) => [`₹${Number(value).toFixed(2)}`, 'Amount']}
           />
