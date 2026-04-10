@@ -4,6 +4,7 @@
 all_files.txt
 notes.txt
 PROJECT_FINISH_CHECKLIST.md
+.DS_Store
 
 # Dependencies
 node_modules/
@@ -20,10 +21,13 @@ dist-ssr/
 build/
 *.pyc
 __pycache__/
+.pytest_cache/
 
 # Databases
 *.db
 *.sqlite3
+*.sqlite
+splitwise.db
 
 # Editor/IDE files
 .vscode/

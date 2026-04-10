@@ -24,14 +24,14 @@ def calculate_group_balances(db, group_oid: ObjectId, member_oids: List[ObjectId
             net[uid] = net.get(uid, 0) - int(split["share_minor"])
 
     # Settlements:
-    # from_user pays to_user -> from_user owes less, to_user should receive less
+    # from_user pays to_user -> from_user owes less, to_user receives credit
     for settlement in db["settlements"].find({"group_id": group_oid}):
         from_uid = sid(settlement["from_user_id"])
         to_uid = sid(settlement["to_user_id"])
         amount = int(settlement["amount_minor"])
 
-        net[from_uid] += amount
-        net[to_uid] -= amount
+        net[from_uid] -= amount  # from_user's debt reduced
+        net[to_uid] += amount    # to_user receives credit
 
     creditors = [[uid, amt] for uid, amt in net.items() if amt > 0]
     debtors = [[uid, -amt] for uid, amt in net.items() if amt < 0]

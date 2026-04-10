@@ -42,7 +42,8 @@ def register(payload: RegisterRequest, db: Database = Depends(get_db)):
         raise HTTPException(status_code=400, detail="Email already registered")
 
     user = db["users"].find_one({"_id": result.inserted_id})
-    assert user is not None
+    if not user:
+        raise HTTPException(status_code=500, detail="Failed to retrieve created user")
 
     token = create_access_token(subject=str(user["_id"]))
     return AuthResponse(token=token, user=_user_to_response(user))
