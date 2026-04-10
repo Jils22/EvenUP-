@@ -25,8 +25,8 @@ export const expensesApi = {
     return data.map(mapExpense);
   },
 
-  getExpense: async (expenseId: string): Promise<Expense> => {
-    const { data } = await apiClient.get<any>(`/expenses/${expenseId}`);
+  getExpense: async (groupId: string, expenseId: string): Promise<Expense> => {
+    const { data } = await apiClient.get<any>(`/groups/${groupId}/expenses/${expenseId}`);
     return mapExpense(data);
   },
 
@@ -46,7 +46,7 @@ export const expensesApi = {
     return mapExpense(data);
   },
 
-  updateExpense: async (expenseId: string, payload: Partial<Expense> & { splits?: any[], percents?: any[], participant_user_ids?: string[] }): Promise<Expense> => {
+  updateExpense: async (groupId: string, expenseId: string, payload: Partial<Expense> & { splits?: any[], percents?: any[], participant_user_ids?: string[] }): Promise<Expense> => {
     const backendPayload: any = {
       title: payload.title,
       amount: payload.amount,
@@ -57,12 +57,12 @@ export const expensesApi = {
     if (payload.splits) backendPayload.splits = payload.splits;
     if (payload.percents) backendPayload.percents = payload.percents;
 
-    const { data } = await apiClient.patch<any>(`/expenses/${expenseId}`, backendPayload);
+    const { data } = await apiClient.patch<any>(`/groups/${groupId}/expenses/${expenseId}`, backendPayload);
     return mapExpense(data);
   },
 
-  deleteExpense: async (expenseId: string): Promise<void> => {
-    await apiClient.delete(`/expenses/${expenseId}`);
+  deleteExpense: async (groupId: string, expenseId: string): Promise<void> => {
+    await apiClient.delete(`/groups/${groupId}/expenses/${expenseId}`);
   },
 
   getBalances: async (groupId: string): Promise<BalanceSummary> => {
@@ -77,10 +77,9 @@ export const expensesApi = {
 
   // Get all expenses across ALL groups for the current user
   getAllExpenses: async (): Promise<Expense[]> => {
-    // Note: Backend doesn't have a global /expenses endpoint yet
-    // This would need to be implemented or client does the aggregation
-    const { data } = await apiClient.get<any[]>(`/users/me/expenses`);
-    return data.map(mapExpense);
+    // Note: Backend doesn't have a global /expenses endpoint yet. 
+    // Returning empty array for now to avoid 404 crashes.
+    return [];
   },
 
   getAnalytics: async (): Promise<any> => {

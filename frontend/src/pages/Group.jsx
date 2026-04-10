@@ -251,7 +251,7 @@ export default function Group() {
     closeSettlementDrawer(); // only one drawer at a time
 
     try {
-      const data = await expensesApi.getExpense(expenseId);
+      const data = await expensesApi.getExpense(groupId, expenseId);
       setSelectedExpenseId(expenseId);
       setSelectedExpense(data);
       resetExpenseEditState();
@@ -383,7 +383,7 @@ export default function Group() {
     // keep expense drawer in sync
     if (selectedExpenseId) {
       try {
-        const latestExp = await getExpense(groupId, selectedExpenseId);
+        const latestExp = await expensesApi.getExpense(groupId, selectedExpenseId);
         setSelectedExpense(latestExp);
       } catch {
         closeExpenseDrawer();
@@ -566,7 +566,7 @@ export default function Group() {
         return toast.error("Invalid split type");
       }
 
-      await expensesApi.updateExpense(selectedExpenseId, payload);
+      await expensesApi.updateExpense(groupId, selectedExpenseId, payload);
 
       toast.success("Expense updated ✅");
       setIsEditing(false);
@@ -585,7 +585,7 @@ export default function Group() {
     if (!ok) return;
 
     try {
-      await expensesApi.deleteExpense(selectedExpenseId);
+      await expensesApi.deleteExpense(groupId, selectedExpenseId);
       toast.success("Expense deleted ✅");
       closeExpenseDrawer();
       await refreshAll();

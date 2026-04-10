@@ -145,7 +145,7 @@ export default function Dashboard() {
                     balance={0}
                     members={group.members.map(m => ({
                       id: m.id,
-                      initials: m.name ? m.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) : m.email[0].toUpperCase(),
+                      initials: m.name ? m.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) : (m.email?.[0]?.toUpperCase() ?? '?'),
                     }))}
                   />
                 </Link>

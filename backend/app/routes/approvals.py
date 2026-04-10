@@ -43,23 +43,25 @@ def _get_pending_expense(db, group_oid: ObjectId, expense_oid: ObjectId) -> dict
 
     # Auto-expire if 48-h window has passed
     expires_at = expense.get("expires_at")
-    if expires_at and datetime.now(timezone.utc) > expires_at.replace(tzinfo=timezone.utc) if expires_at.tzinfo is None else expires_at:
-        db["expenses"].update_one(
-            {"_id": expense_oid},
-            {"$set": {"status": "rejected", "rejection_reason": "expired"}},
-        )
-        notify_users(
-            db,
-            user_ids=[expense["paid_by"]],
-            notif_type="expense_expired",
-            group_id=group_oid,
-            data={
-                "expense_id": sid(expense_oid),
-                "title": expense["title"],
-                "amount_minor": int(expense["amount_minor"]),
-            },
-        )
-        raise HTTPException(status_code=410, detail="Expense approval window expired. It has been auto-rejected.")
+    if expires_at:
+        aware = expires_at if expires_at.tzinfo else expires_at.replace(tzinfo=timezone.utc)
+        if datetime.now(timezone.utc) > aware:
+            db["expenses"].update_one(
+                {"_id": expense_oid},
+                {"$set": {"status": "rejected", "rejection_reason": "expired"}},
+            )
+            notify_users(
+                db,
+                user_ids=[expense["paid_by"]],
+                notif_type="expense_expired",
+                group_id=group_oid,
+                data={
+                    "expense_id": sid(expense_oid),
+                    "title": expense["title"],
+                    "amount_minor": int(expense["amount_minor"]),
+                },
+            )
+            raise HTTPException(status_code=410, detail="Expense approval window expired. It has been auto-rejected.")
 
     return expense
 

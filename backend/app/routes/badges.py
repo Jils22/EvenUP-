@@ -19,7 +19,10 @@ def _compute_badges(db, me_oid, me_id: str) -> list[dict]:
     badges: list[dict] = []
 
     # ── 1. FIRST EXPENSE — Created at least one expense ──────────────────────
-    first_expense = db["expenses"].find_one({"paid_by": me_oid})
+    first_expense = db["expenses"].find_one({
+        "paid_by": me_oid,
+        "$or": [{"status": "approved"}, {"status": {"$exists": False}}],
+    })
     badges.append({
         "id": "first_expense",
         "name": "First Round",
@@ -44,7 +47,10 @@ def _compute_badges(db, me_oid, me_id: str) -> list[dict]:
 
     # ── 3. BIG SPENDER — Paid more than ₹10,000 total ────────────────────────
     pipeline_paid = [
-        {"$match": {"paid_by": me_oid}},
+        {"$match": {
+            "paid_by": me_oid,
+            "$or": [{"status": "approved"}, {"status": {"$exists": False}}],
+        }},
         {"$group": {"_id": None, "total": {"$sum": "$amount_minor"}}},
     ]
     paid_result = list(db["expenses"].aggregate(pipeline_paid))
@@ -83,7 +89,10 @@ def _compute_badges(db, me_oid, me_id: str) -> list[dict]:
     })
 
     # ── 5. THE BANKER — Paid in 10+ expenses ─────────────────────────────────
-    expense_paid_count = db["expenses"].count_documents({"paid_by": me_oid})
+    expense_paid_count = db["expenses"].count_documents({
+        "paid_by": me_oid,
+        "$or": [{"status": "approved"}, {"status": {"$exists": False}}],
+    })
     badges.append({
         "id": "the_banker",
         "name": "The Banker",
@@ -96,7 +105,11 @@ def _compute_badges(db, me_oid, me_id: str) -> list[dict]:
 
     # ── 6. TRENDSETTER — Added an expense in each of 5 different categories ──
     pipeline_cats = [
-        {"$match": {"paid_by": me_oid, "category": {"$exists": True, "$ne": None}}},
+        {"$match": {
+            "paid_by": me_oid, 
+            "category": {"$exists": True, "$ne": None},
+            "$or": [{"status": "approved"}, {"status": {"$exists": False}}],
+        }},
         {"$group": {"_id": "$category"}},
     ]
     unique_cats = list(db["expenses"].aggregate(pipeline_cats))
@@ -111,7 +124,11 @@ def _compute_badges(db, me_oid, me_id: str) -> list[dict]:
     })
 
     # ── 7. TEAM PLAYER — Added expense with 5+ participants ──────────────────
-    large_split = db["expenses"].find_one({"paid_by": me_oid, "splits.4": {"$exists": True}})
+    large_split = db["expenses"].find_one({
+        "paid_by": me_oid, 
+        "splits.4": {"$exists": True},
+        "$or": [{"status": "approved"}, {"status": {"$exists": False}}],
+    })
     badges.append({
         "id": "team_player",
         "name": "Team Player",
@@ -124,7 +141,10 @@ def _compute_badges(db, me_oid, me_id: str) -> list[dict]:
 
     # ── 8. MONTH STREAK — Active (participated in expense) 3 consecutive months
     months_active: set[str] = set()
-    for exp in db["expenses"].find({"splits.user_id": me_oid}, {"created_at": 1}):
+    for exp in db["expenses"].find({
+        "splits.user_id": me_oid,
+        "$or": [{"status": "approved"}, {"status": {"$exists": False}}],
+    }, {"created_at": 1}):
         created = exp.get("created_at")
         if isinstance(created, datetime):
             months_active.add(f"{created.year}-{created.month:02d}")

@@ -67,7 +67,7 @@ def list_members(group_id: str, db: Database = Depends(get_db), current_user=Dep
     member_oids = group.get("member_ids", [])
     users = db["users"].find({"_id": {"$in": member_oids}}, {"name": 1, "email": 1})
 
-    return [{"id": sid(user["_id"]), "name": user["name"], "email": user["email"]} for user in users]
+    return [{"id": sid(user["_id"]), "name": user.get("name", ""), "email": user.get("email", "")} for user in users]
 
 
 @router.post("/{group_id}/members", status_code=status.HTTP_201_CREATED)

@@ -16,7 +16,8 @@ def _month_range():
 
 def _build_analytics(db, me_oid):
     """Return spending data used by both /insights and /chat."""
-    expenses = list(db["expenses"].find({"splits.user_id": me_oid}))
+    now = datetime.now(timezone.utc)
+    expenses = list(db["expenses"].find({"splits.user_id": me_oid, "$or": [{"status": "approved"}, {"status": {"$exists": False}}]}))
 
     cat_totals = defaultdict(int)
     group_spend = defaultdict(int)

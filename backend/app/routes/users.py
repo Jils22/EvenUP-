@@ -42,7 +42,7 @@ def change_password(body: UpdatePasswordIn, db=Depends(get_db), current_user=Dep
     if not user_doc:
         raise HTTPException(status_code=404, detail="User not found")
     
-    stored_hash = user_doc.get("password") or user_doc.get("hashed_password", "")
+    stored_hash = user_doc.get("password_hash") or user_doc.get("hashed_password") or user_doc.get("password", "")
     if not pwd_ctx.verify(body.current_password, stored_hash):
         raise HTTPException(status_code=400, detail="Current password is incorrect")
     
@@ -123,7 +123,8 @@ def my_analytics(db=Depends(get_db), current_user=Depends(get_current_user)):
     # Actually, let's just aggregate expenses where the user has a share > 0.
     
     expenses_cursor = db["expenses"].find({
-        "splits.user_id": me_oid
+        "splits.user_id": me_oid,
+        "$or": [{"status": "approved"}, {"status": {"$exists": False}}],
     })
     
     category_totals = {}
@@ -173,7 +174,10 @@ def my_analytics(db=Depends(get_db), current_user=Depends(get_current_user)):
         months[label] = 0
 
     # Scan all expenses the user participated in
-    all_expenses = db["expenses"].find({"splits.user_id": me_oid})
+    all_expenses = db["expenses"].find({
+        "splits.user_id": me_oid,
+        "$or": [{"status": "approved"}, {"status": {"$exists": False}}],
+    })
     for exp in all_expenses:
         created = exp.get("created_at")
         if not created:

@@ -1,4 +1,4 @@
-// src/api/settlements.ts
+// src/api/settlementsApi.ts
 import { apiClient } from './client';
 import { Settlement } from '../types/api';
 
@@ -26,3 +26,10 @@ export const settlementsApi = {
     await apiClient.delete(`/groups/${groupId}/settlements/${id}`);
   }
 };
+
+// Named exports for compatibility with older components
+export const getGroupSettlements = settlementsApi.getGroupSettlements;
+export const createSettlement = settlementsApi.createSettlement;
+export const updateSettlement = settlementsApi.updateSettlement;
+export const deleteSettlement = settlementsApi.deleteSettlement;
+export const listSettlements = getGroupSettlements; // Alias used in Group.jsx

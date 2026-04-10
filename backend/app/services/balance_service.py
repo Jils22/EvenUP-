@@ -10,15 +10,18 @@ from app.utils.mongo_ids import sid
 def calculate_group_balances(db, group_oid: ObjectId, member_oids: List[ObjectId]) -> Dict[str, object]:
     net: Dict[str, int] = {sid(u): 0 for u in member_oids}
 
-    # Expenses:
+    # Expenses: only approved (or legacy docs without a status field)
     # payer gets +amount, each participant gets -share
-    for expense in db["expenses"].find({"group_id": group_oid}):
+    for expense in db["expenses"].find({
+        "group_id": group_oid,
+        "$or": [{"status": "approved"}, {"status": {"$exists": False}}],
+    }):
         paid_by = sid(expense["paid_by"])
-        net[paid_by] += int(expense["amount_minor"])
+        net[paid_by] = net.get(paid_by, 0) + int(expense["amount_minor"])
 
         for split in expense.get("splits", []):
             uid = sid(split["user_id"])
-            net[uid] -= int(split["share_minor"])
+            net[uid] = net.get(uid, 0) - int(split["share_minor"])
 
     # Settlements:
     # from_user pays to_user -> from_user owes less, to_user should receive less
