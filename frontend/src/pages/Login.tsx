@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Eye, EyeOff, Loader2, Zap } from 'lucide-react';
 import { apiClient } from '../api/client';
+import axios from 'axios';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -24,11 +25,18 @@ export default function Login() {
     setLoading(true);
 
     try {
-      const body = new URLSearchParams();
-      body.set('username', email.trim().toLowerCase());
-      body.set('password', password);
+      const loginBody = new URLSearchParams();
+      loginBody.set('username', email.trim().toLowerCase());
+      loginBody.set('password', password);
 
-      const res = await apiClient.post('/auth/login', body);
+      // Use raw axios to bypass any global apiClient / interceptor conflicts for this specific form-data call
+      const API_BASE = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
+      const res = await axios.post(`${API_BASE}/auth/login`, loginBody, {
+        headers: { 
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'Accept': 'application/json'
+        }
+      });
       const data = res.data;
 
       // Token written to localStorage BEFORE any React state update or navigation

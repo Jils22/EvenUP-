@@ -173,7 +173,7 @@ def create_expense_service(db, group_id: str, current_user: dict, payload: Expen
         "status": "pending" if needs_consensus else "approved",
         "approvals": [],
         "required_approvals": len(other_members),
-        "expires_at": now + timedelta(hours=48) if needs_consensus else None,
+        "expires_at": now + timedelta(hours=24) if needs_consensus else None,
     }
 
     if split_type == "equal":
@@ -369,7 +369,7 @@ def update_expense_service(db, group_id: str, expense_id: str, current_user: dic
     if expense.get("status") == "pending":
         update_doc["approvals"] = []
         # Also reset expires_at to give members fresh 48 h
-        update_doc["expires_at"] = datetime.now(timezone.utc) + timedelta(hours=48)
+        update_doc["expires_at"] = datetime.now(timezone.utc) + timedelta(hours=24)
 
     db["expenses"].update_one({"_id": expense_oid, "group_id": group_oid}, {"$set": update_doc})
 
@@ -384,14 +384,15 @@ def update_expense_service(db, group_id: str, expense_id: str, current_user: dic
         verb="updated",
         target_id=updated["_id"],
         data={
+            "title": after.get("title"),
             "before": {
                 "title": before.get("title"),
-                "amount_minor": int(before.get("amount_minor")),
+                "amount_minor": int(before.get("amount_minor", 0)),
                 "split_type": before.get("split_type"),
             },
             "after": {
                 "title": after.get("title"),
-                "amount_minor": int(after.get("amount_minor")),
+                "amount_minor": int(after.get("amount_minor", 0)),
                 "split_type": after.get("split_type"),
             },
         },
@@ -480,3 +481,116 @@ def delete_expense_service(db, group_id: str, expense_id: str, current_user: dic
             "paid_by": sid(before.get("paid_by")),
         },
     )
+
+
+def approve_expense_service(db, group_id: str, expense_id: str, current_user: dict) -> ExpenseOut:
+    group_oid = oid(group_id)
+    me_oid = oid(current_user["id"])
+    require_group_member(db, group_oid, me_oid)
+
+    expense_oid = oid(expense_id)
+    expense = require_expense_in_group(db, group_oid, expense_oid)
+
+    if expense.get("status") != "pending":
+        raise HTTPException(status_code=400, detail="Expense is not pending approval")
+
+    if expense["paid_by"] == me_oid:
+        raise HTTPException(status_code=400, detail="Creator cannot approve their own expense")
+
+    # Check if already voted
+    for a in expense.get("approvals", []):
+        if a["user_id"] == me_oid:
+            raise HTTPException(status_code=400, detail="User already voted")
+
+    # Add approval
+    now = datetime.now(timezone.utc)
+    db["expenses"].update_one(
+        {"_id": expense_oid},
+        {"$push": {"approvals": {"user_id": me_oid, "vote": "approved", "voted_at": now}}}
+    )
+
+    # Reload to check if finalized
+    updated = require_expense_in_group(db, group_oid, expense_oid)
+    if len(updated.get("approvals", [])) >= updated.get("required_approvals", 0):
+        db["expenses"].update_one(
+            {"_id": expense_oid},
+            {"$set": {"status": "approved", "updated_at": now}}
+        )
+        # Notify creator and members
+        log_activity(
+            db,
+            group_id=group_oid,
+            actor_id=me_oid,
+            event_type="expense",
+            verb="approved",
+            target_id=expense_oid,
+            data={"title": updated["title"]}
+        )
+        notify_users(
+            db,
+            user_ids=expense_user_oids(updated),
+            notif_type="expense_approved",
+            group_id=group_oid,
+            data={"expense_id": sid(expense_oid), "title": updated["title"]}
+        )
+
+    return expense_to_out(require_expense_in_group(db, group_oid, expense_oid))
+
+
+def reject_expense_service(db, group_id: str, expense_id: str, current_user: dict) -> ExpenseOut:
+    group_oid = oid(group_id)
+    me_oid = oid(current_user["id"])
+    require_group_member(db, group_oid, me_oid)
+
+    expense_oid = oid(expense_id)
+    expense = require_expense_in_group(db, group_oid, expense_oid)
+
+    if expense.get("status") != "pending":
+        raise HTTPException(status_code=400, detail="Expense is not pending approval")
+
+    now = datetime.now(timezone.utc)
+    db["expenses"].update_one(
+        {"_id": expense_oid},
+        {
+            "$set": {"status": "rejected", "rejection_reason": f"Rejected by {current_user.get('name', 'member')}", "updated_at": now},
+            "$push": {"approvals": {"user_id": me_oid, "vote": "rejected", "voted_at": now}}
+        }
+    )
+
+    log_activity(
+        db,
+        group_id=group_oid,
+        actor_id=me_oid,
+        event_type="expense",
+        verb="rejected",
+        target_id=expense_oid,
+        data={"title": expense["title"]}
+    )
+
+    notify_users(
+        db,
+        user_ids=[expense["paid_by"]],
+        notif_type="expense_rejected",
+        group_id=group_oid,
+        data={"expense_id": sid(expense_oid), "title": expense["title"]}
+    )
+
+    return expense_to_out(require_expense_in_group(db, group_oid, expense_oid))
+
+
+def withdraw_expense_service(db, group_id: str, expense_id: str, current_user: dict) -> Dict[str, bool]:
+    group_oid = oid(group_id)
+    me_oid = oid(current_user["id"])
+    require_group_member(db, group_oid, me_oid)
+
+    expense_oid = oid(expense_id)
+    expense = require_expense_in_group(db, group_oid, expense_oid)
+
+    if expense["paid_by"] != me_oid:
+        raise HTTPException(status_code=403, detail="Only the creator can withdraw this expense")
+
+    if expense.get("status") != "pending":
+        raise HTTPException(status_code=400, detail="Can only withdraw pending expenses")
+
+    db["expenses"].delete_one({"_id": expense_oid})
+    return {"ok": True}

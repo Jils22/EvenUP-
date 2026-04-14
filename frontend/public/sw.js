@@ -9,8 +9,8 @@
  * to avoid a build-step dependency.
  */
 
-const CACHE_NAME = 'evenup-v1';
-const API_CACHE = 'evenup-api-v1';
+const CACHE_NAME = 'evenup-v2';
+const API_CACHE = 'evenup-api-v2';
 
 // Static assets to pre-cache on install
 const PRECACHE_URLS = [
@@ -46,40 +46,72 @@ self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // Skip non-GET and cross-origin (except API)
+  // Skip non-GET requests
   if (request.method !== 'GET') return;
 
-  // API requests: Network-First
-  if (url.hostname === '127.0.0.1' || url.pathname.startsWith('/api')) {
+  // 1. Navigation Fallback: Handle SPA routing
+  // If this is a navigation request (loading a page), try network first, then cache
+  if (request.mode === 'navigate') {
+    event.respondWith(
+      fetch(request)
+        .catch(() => {
+          // If network fails (offline or server issues), serve cached index.html
+          return caches.match('/index.html')
+            .then(cachedResponse => {
+              if (cachedResponse) return cachedResponse;
+              // Fallback to absolute root if /index.html not found in cache
+              return caches.match('/');
+            });
+        })
+    );
+    return;
+  }
+
+  // 2. API requests: Network-First
+  // Detect API: /api path or specific backend hostnames
+  const looksLikeApi = url.pathname.startsWith('/api') || 
+                       url.hostname === '127.0.0.1' || 
+                       url.hostname === 'localhost' && url.port === '8000';
+
+  if (looksLikeApi) {
     event.respondWith(
       fetch(request)
         .then(response => {
-          // Cache successful API responses
-          if (response.ok) {
+          // Only cache successful API responses
+          if (response && response.ok) {
             const cloned = response.clone();
             caches.open(API_CACHE).then(cache => cache.put(request, cloned));
           }
           return response;
         })
-        .catch(() => caches.match(request))  // offline fallback
+        .catch(() => {
+          // Fallback to cache if network fails (offline support)
+          return caches.match(request);
+        })
     );
     return;
   }
 
-  // For exchange rate API — network only (never cache currency data)
-  if (url.hostname.includes('er-api.com')) return;
+  // 3. Static assets & External APIs
+  if (url.hostname.includes('er-api.com')) return; // Currency API: Network-only
 
-  // App shell & static assets: Cache-First
   event.respondWith(
     caches.match(request).then(cached => {
       if (cached) return cached;
-      return fetch(request).then(response => {
-        if (response.ok) {
-          const cloned = response.clone();
-          caches.open(CACHE_NAME).then(cache => cache.put(request, cloned));
-        }
-        return response;
-      });
+      
+      return fetch(request)
+        .then(response => {
+          // Cache successful assets
+          if (response && response.ok) {
+            const cloned = response.clone();
+            caches.open(CACHE_NAME).then(cache => cache.put(request, cloned));
+          }
+          return response;
+        })
+        .catch(() => {
+          // Return generic error or blank if everything fails
+          return new Response('Network error occurred', { status: 408, headers: { 'Content-Type': 'text/plain' } });
+        });
     })
   );
 });

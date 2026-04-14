@@ -26,7 +26,7 @@ import {
 import { groupsApi as groupsApi_raw } from "../api/groupsApi";
 import { expensesApi as expensesApi_raw } from "../api/expensesApi";
 import { approvalsApi } from "../api/approvalsApi";
-import { getActivity } from "../api/activityApi";
+import { activityApi } from "../api/activityApi";
 import {
   createSettlement,
   updateSettlement,
@@ -38,8 +38,11 @@ const groupsApi = groupsApi_raw;
 const expensesApi = expensesApi_raw;
 
 import ActivityFeed from "../components/ActivityFeed";
+import ErrorBoundary from "../components/ErrorBoundary";
 import { cn } from "../lib/utils";
 import "./group.css";
+
+const isValidObjectId = (id) => /^[0-9a-fA-F]{24}$/.test(id);
 
 const CATEGORY_ICONS = {
   food: <Utensils size={16} />,
@@ -68,6 +71,9 @@ export default function Group() {
   const [expenses, setExpenses] = useState([]);
   const [balances, setBalances] = useState(null);
   const [activity, setActivity] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState(null);
+  const [invalidId, setInvalidId] = useState(false);
 
   const [inviteEmail, setInviteEmail] = useState("");
 
@@ -178,7 +184,10 @@ export default function Group() {
   const settlementsRef = useRef(null);
   const activityRef = useRef(null);
 
-  function scrollTo(ref) {
+  const [activeTab, setActiveTab] = useState("expenses");
+
+  function scrollTo(ref, section) {
+    setActiveTab(section);
     ref?.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
@@ -343,23 +352,83 @@ export default function Group() {
 
   // ===== Refresh all =====
   async function refreshAll() {
-
-    const [g, mem, exp, bal, act, sets] = await Promise.all([
+    // 1. Fetch core group data (essential for rendering anything)
+    const [g, mem, exp] = await Promise.all([
       groupsApi.getGroup(groupId),
       groupsApi.listMembers(groupId),
       expensesApi.getGroupExpenses(groupId),
-      expensesApi.getBalances(groupId),
-      getActivity(groupId),
-      listSettlements(groupId),
     ]);
-
-    const actItems = Array.isArray(act) ? act : act?.items ?? [];
 
     setGroup(g);
     setMembers(mem);
     setExpenses(exp);
+
+    // 2. Fetch secondary data (non-blocking, handle failures gracefully)
+    const results = await Promise.allSettled([
+      expensesApi.getBalances(groupId),
+      activityApi.getGroupActivity(groupId),
+      listSettlements(groupId),
+    ]);
+
+    const [balRes, actRes, setsRes] = results;
+
+    const bal = balRes.status === 'fulfilled' ? balRes.value : null;
+    const act = actRes.status === 'fulfilled' ? actRes.value : [];
+    const sets = setsRes.status === 'fulfilled' ? setsRes.value : [];
+
+    if (balRes.status === 'rejected') console.error('Balances load failed:', balRes.reason);
+    if (actRes.status === 'rejected') console.error('Activity load failed:', actRes.reason);
+    if (setsRes.status === 'rejected') console.error('Settlements load failed:', setsRes.reason);
+
     setBalances(bal);
-    setActivity(actItems);
+    
+    // Robust activity mapping - safeguard against missing or malformed data
+    const rawActivityItems = (Array.isArray(act) ? act : (act?.items ?? []));
+    const mappedActivity = rawActivityItems.map(item => {
+      if (!item || typeof item !== 'object') return null;
+
+      let type = 'info';
+      if (item.event_type === 'expense') type = 'expense';
+      else if (item.event_type === 'settlement') type = 'settlement';
+      else if (item.event_type === 'group' && item.verb === 'member_added') type = 'join';
+
+      let description = item.verb || 'Activity';
+      const actorName = nameOf(item.actor_id);
+      const data = item.data || {};
+      
+      try {
+        if (item.event_type === 'expense') {
+          if (item.verb === 'created') description = `${actorName} added expense: ${data.title || 'Untitled'}`;
+          else if (item.verb === 'updated') {
+            const beforeTitle = data.before?.title || data.title || 'Untitled';
+            const afterTitle = data.after?.title || data.title || 'Untitled';
+            description = beforeTitle === afterTitle 
+              ? `${actorName} updated expense: ${afterTitle}`
+              : `${actorName} renamed "${beforeTitle}" to "${afterTitle}"`;
+          }
+          else if (item.verb === 'deleted') description = `${actorName} deleted expense: ${data.title || 'Untitled'}`;
+        } else if (item.event_type === 'settlement') {
+          description = `${actorName} recorded a settlement`;
+        } else if (item.event_type === 'group' && item.verb === 'member_added') {
+          description = `${actorName} joined the group`;
+        } else if (item.verb) {
+          description = `${actorName} ${item.verb} ${item.event_type || 'item'}`;
+        }
+      } catch (e) {
+        console.error("Error generating activity description:", e, item);
+        description = `${actorName} ${item.verb || 'performed an action'}`;
+      }
+
+      return {
+        id: item.id || Math.random().toString(36),
+        type,
+        description,
+        time: item.created_at ? new Date(item.created_at).toLocaleString() : 'Recently',
+        categoryKey: data.category
+      };
+    }).filter(Boolean);
+
+    setActivity(mappedActivity);
     setSettlements(sets ?? []);
 
     // defaults
@@ -407,7 +476,22 @@ export default function Group() {
   }, [paidBy]);
 
   useEffect(() => {
-    refreshAll().catch((e) => toast.error(e?.message ?? String(e)));
+    if (!groupId || !isValidObjectId(groupId)) {
+      setInvalidId(true);
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    setFetchError(null);
+    setInvalidId(false);
+
+    refreshAll()
+      .catch((e) => {
+        console.error("Critical error loading group data:", e);
+        setFetchError(e?.message ?? String(e));
+      })
+      .finally(() => setLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [groupId]);
 
@@ -607,7 +691,9 @@ export default function Group() {
     const selected = participants.map(String);
 
     if (selected.length < 2) return toast.error("Select at least 2 participants");
-    if (!selected.includes(payerId)) return toast.error("Payer must be included in partici    try {
+    if (!selected.includes(payerId)) return toast.error("Payer must be included in participants");
+
+    try {
       let payload = {
         title: title.trim(),
         amount: amt,
@@ -654,13 +740,11 @@ export default function Group() {
         }
         payload.percents = percents;
         payload.participants = selected.map(uid => ({ userId: uid }));
-      }
-
-      await expensesApi.createExpense(groupId, payload);
-        });
       } else {
         return toast.error("Invalid split type");
       }
+
+      await expensesApi.createExpense(groupId, payload);
 
       toast.success("Expense added! 🎉");
       setTitle("");
@@ -679,10 +763,10 @@ export default function Group() {
   async function onSmartScan() {
     setScanning(true);
     toast.info("Scanning receipt... 📸");
-    
+
     // Mocking the AI processing time
     await new Promise(r => setTimeout(r, 2000));
-    
+
     setTitle("Dinner at Olive Garden 🇮🇹");
     setAmount("2450.00");
     setCategory("food");
@@ -691,7 +775,38 @@ export default function Group() {
   }
 
   // ===== Render =====
-  if (!group) return <div style={{ padding: 20 }}>Loading...</div>;
+  if (invalidId) {
+    return (
+      <div style={{ padding: 40, textAlign: 'center' }}>
+        <h2 style={{ color: '#f87171' }}>Group Not Found</h2>
+        <p style={{ opacity: 0.7 }}>The group ID in the URL is malformed or invalid.</p>
+        <Link to="/groups" className="btn btn--primary" style={{ display: 'inline-block', marginTop: 20 }}>
+          Back to My Groups
+        </Link>
+      </div>
+    );
+  }
+
+  if (fetchError) {
+    return (
+      <div style={{ padding: 40, textAlign: 'center' }}>
+        <h2 style={{ color: '#f87171' }}>Failed to load Group</h2>
+        <p style={{ opacity: 0.7 }}>{fetchError}</p>
+        <button onClick={() => window.location.reload()} className="btn btn--primary" style={{ marginTop: 20 }}>
+          Retry
+        </button>
+      </div>
+    );
+  }
+
+  if (loading || !group) {
+    return (
+      <div style={{ padding: 40, textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20 }}>
+        <Loader2 size={40} className="animate-spin" style={{ color: '#818cf8' }} />
+        <p style={{ opacity: 0.7 }}>Loading group details...</p>
+      </div>
+    );
+  }
 
   // Compute current user's net balance in minor units
   const myNetMinor = currentUserId && balances?.net ? (balances.net[currentUserId] ?? 0) : 0;
@@ -713,7 +828,7 @@ export default function Group() {
               try {
                 await refreshAll();
                 toast.success("Data refreshed!");
-              } catch(e) {
+              } catch (e) {
                 toast.error(e?.message ?? String(e));
               }
             }}
@@ -750,14 +865,26 @@ export default function Group() {
 
       {/* Sticky Section Navigation */}
       <div className="gp-stickyNav">
-        <div className="btnRow" style={{ marginBottom: 10 }}>
-          <button type="button" className="btn" onClick={() => scrollTo(expensesRef)}>
+        <div className="btnRow">
+          <button
+            type="button"
+            className={cn("gp-tab", activeTab === "expenses" && "gp-tab--active")}
+            onClick={() => scrollTo(expensesRef, "expenses")}
+          >
             Expenses
           </button>
-          <button type="button" className="btn" onClick={() => scrollTo(settlementsRef)}>
+          <button
+            type="button"
+            className={cn("gp-tab", activeTab === "settlements" && "gp-tab--active")}
+            onClick={() => scrollTo(settlementsRef, "settlements")}
+          >
             Settlements
           </button>
-          <button type="button" className="btn" onClick={() => scrollTo(activityRef)}>
+          <button
+            type="button"
+            className={cn("gp-tab", activeTab === "activity" && "gp-tab--active")}
+            onClick={() => scrollTo(activityRef, "activity")}
+          >
             Activity
           </button>
         </div>
@@ -935,80 +1062,83 @@ export default function Group() {
             </div>
           )}
 
-          {/* Expenses (Approved Ledger) */}
           <div className="card tilt-card" ref={expensesRef}>
             <h3>Expenses</h3>
 
-            {expenses.length === 0 ? (
-              <p className="card-muted">No expenses yet.</p>
-            ) : (
-              <ul className="listPlain" style={{ display: "grid", gap: 10 }}>
-                {expenses.map((e) => (
-                  <li
-                    key={e.id}
-                    className={`rowItem ${e.id === selectedExpenseId ? "rowItem--active" : ""}`}
-                    onClick={() => openExpense(e.id)}
-                  >
-                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                      <div className="category-icon" style={{ 
-                        width: 32, 
-                        height: 32, 
-                        borderRadius: 8, 
-                        background: "rgba(255,255,255,0.05)", 
-                        display: "flex", 
-                        alignItems: "center", 
-                        justifyContent: "center",
-                        color: "#9ca3af"
-                      }}>
-                        {CATEGORY_ICONS[e.category] || <Tag size={16} />}
-                      </div>
-                      <div>
-                        <div style={{ fontWeight: 800 }}>{e.title}</div>
-                        <div className="small">
-                          paid by {memberById.get(e.paid_by)?.name ?? `User#${e.paid_by}`}
-                          {e.category && <span style={{ marginLeft: 8, opacity: 0.6 }}>• {e.category}</span>}
+            <ErrorBoundary name="Expense List">
+              {expenses.length === 0 ? (
+                <p className="card-muted">No expenses yet.</p>
+              ) : (
+                <ul className="listPlain" style={{ display: "grid", gap: 10 }}>
+                  {expenses.map((e) => (
+                    <li
+                      key={e.id}
+                      className={`rowItem ${e.id === selectedExpenseId ? "rowItem--active" : ""}`}
+                      onClick={() => openExpense(e.id)}
+                    >
+                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <div className="category-icon" style={{
+                          width: 32,
+                          height: 32,
+                          borderRadius: 8,
+                          background: "rgba(255,255,255,0.05)",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          color: "#9ca3af"
+                        }}>
+                          {CATEGORY_ICONS[e.category] || <Tag size={16} />}
+                        </div>
+                        <div>
+                          <div style={{ fontWeight: 800 }}>{e.title}</div>
+                          <div className="small">
+                            paid by {memberById.get(e.paid_by)?.name ?? `User#${e.paid_by}`}
+                            {e.category && <span style={{ marginLeft: 8, opacity: 0.6 }}>• {e.category}</span>}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                    <div className="mono" style={{ fontWeight: 800 }}>
-                      ₹{money(e.amount_minor)}
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
+                      <div className="mono" style={{ fontWeight: 800 }}>
+                        ₹{money(e.amount_minor)}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </ErrorBoundary>
           </div>
 
           {/* Settlements */}
           <div className="card tilt-card" ref={settlementsRef}>
             <h3>Settlements</h3>
 
-            {settlements.length === 0 ? (
-              <p className="card-muted">No settlements yet.</p>
-            ) : (
-              <ul className="listPlain" style={{ display: "grid", gap: 10 }}>
-                {settlements.map((s) => (
-                  <li
-                    key={s.id}
-                    className={`rowItem ${s.id === selectedSettlementId ? "rowItem--active" : ""}`}
-                    onClick={() => openSettlement(s.id)}
-                  >
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <CreditCard size={16} />
-                      <div>
-                        <div style={{ fontWeight: 800 }}>
-                          {nameOf(s.from_user_id)} paid {nameOf(s.to_user_id)}
+            <ErrorBoundary name="Settlement List">
+              {settlements.length === 0 ? (
+                <p className="card-muted">No settlements yet.</p>
+              ) : (
+                <ul className="listPlain" style={{ display: "grid", gap: 10 }}>
+                  {settlements.map((s) => (
+                    <li
+                      key={s.id}
+                      className={`rowItem ${s.id === selectedSettlementId ? "rowItem--active" : ""}`}
+                      onClick={() => openSettlement(s.id)}
+                    >
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <CreditCard size={16} />
+                        <div>
+                          <div style={{ fontWeight: 800 }}>
+                            {nameOf(s.from_user_id)} paid {nameOf(s.to_user_id)}
+                          </div>
+                          <div className="small">Settlement</div>
                         </div>
-                        <div className="small">Settlement</div>
                       </div>
-                    </div>
-                    <div className="mono" style={{ fontWeight: 800 }}>
-                      ₹{money(s.amount_minor)}
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
+                      <div className="mono" style={{ fontWeight: 800 }}>
+                        ₹{money(s.amount_minor)}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </ErrorBoundary>
           </div>
 
           {/* Activity */}
@@ -1022,7 +1152,7 @@ export default function Group() {
                   try {
                     await refreshAll();
                     toast.success("Activity refreshed!");
-                  } catch(e) {
+                  } catch (e) {
                     toast.error(e?.message ?? String(e));
                   }
                 }}
@@ -1031,13 +1161,15 @@ export default function Group() {
               </button>
             </div>
 
-            <ActivityFeed
-              activity={activity}
-              memberById={memberById}
-              nameOf={nameOf}
-              onOpenExpense={(expenseId) => openExpense(expenseId)}
-              onOpenSettlement={(settlementId) => openSettlement(settlementId)}
-            />
+            <ErrorBoundary name="Activity Feed">
+              <ActivityFeed
+                activities={activity}
+                memberById={memberById}
+                nameOf={nameOf}
+                onOpenExpense={(expenseId) => openExpense(expenseId)}
+                onOpenSettlement={(settlementId) => openSettlement(settlementId)}
+              />
+            </ErrorBoundary>
           </div>
         </div>
 
@@ -1048,8 +1180,8 @@ export default function Group() {
             background: myNetMinor > 0
               ? "linear-gradient(135deg, #052e16 0%, #14532d 100%)"
               : myNetMinor < 0
-              ? "linear-gradient(135deg, #450a0a 0%, #7f1d1d 100%)"
-              : "linear-gradient(135deg, #1e1b4b 0%, #312e81 100%)",
+                ? "linear-gradient(135deg, #450a0a 0%, #7f1d1d 100%)"
+                : "linear-gradient(135deg, #1e1b4b 0%, #312e81 100%)",
             border: `1px solid ${myNetMinor > 0 ? "#16a34a" : myNetMinor < 0 ? "#dc2626" : "#6366f1"}`,
           }}>
             <p className="small" style={{ marginBottom: 6, opacity: 0.8, color: "#d1d5db" }}>Your Balance</p>
@@ -1104,10 +1236,10 @@ export default function Group() {
           <div className="card tilt-card" style={{ border: scanning ? '1px solid var(--primary)' : undefined }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
               <h3 style={{ margin: 0 }}>Add Expense</h3>
-              <button 
-                type="button" 
+              <button
+                type="button"
                 className={cn(
-                  "btn btn--small gap-2", 
+                  "btn btn--small gap-2",
                   "bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20 transition-all",
                   scanning && "animate-pulse"
                 )}
@@ -1165,8 +1297,8 @@ export default function Group() {
                 {splitType === "equal"
                   ? "Split among"
                   : splitType === "exact"
-                  ? "Exact split amounts (₹)"
-                  : "Percent split (%)"}
+                    ? "Exact split amounts (₹)"
+                    : "Percent split (%)"}
               </label>
 
               <div style={{ border: "1px solid #eee", padding: 10, borderRadius: 12 }}>
@@ -1236,9 +1368,9 @@ export default function Group() {
                     <span>
                       {nameOf(t.from_user_id)} owes {nameOf(t.to_user_id)} <b>₹{money(t.amount_minor)}</b>
                     </span>
-                    <button 
-                      type="button" 
-                      className="btn btn--small" 
+                    <button
+                      type="button"
+                      className="btn btn--small"
                       style={{ fontSize: 11, padding: '2px 8px' }}
                       onClick={() => {
                         setSettleFrom(String(t.from_user_id));
@@ -1419,8 +1551,8 @@ export default function Group() {
                     {editSplitType === "equal"
                       ? "Split among"
                       : editSplitType === "exact"
-                      ? "Exact split amounts (₹)"
-                      : "Percent split (%)"}
+                        ? "Exact split amounts (₹)"
+                        : "Percent split (%)"}
                   </label>
 
                   <div style={{ border: "1px solid #eee", padding: 10, borderRadius: 12 }}>

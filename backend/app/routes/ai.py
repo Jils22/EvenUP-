@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 from app.db.deps import get_db
 from app.core.auth import get_current_user
-from app.utils.mongo_ids import object_id as oid, sid
+from app.utils.mongo_ids import oid, sid
 from datetime import datetime, timezone, timedelta
 from collections import defaultdict
 

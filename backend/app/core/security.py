@@ -8,6 +8,15 @@ from passlib.context import CryptContext
 
 from app.core.config import settings
 
+import bcrypt
+
+# Workaround for passlib + bcrypt 4.1.0+ compatibility issue
+# passlib 1.7.4 checks for bcrypt.__about__.__version__ which was removed in bcrypt 4.1.0
+if not hasattr(bcrypt, "__about__"):
+    class BcryptAbout:
+        __version__ = bcrypt.__version__
+    bcrypt.__about__ = BcryptAbout()
+
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 

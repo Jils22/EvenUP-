@@ -1,11 +1,16 @@
+from datetime import datetime, timezone
+from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from pymongo.database import Database
 
 from app.core.auth import get_current_user
 from app.db.deps import get_db
 from app.schemas.groups import AddMemberRequest, GroupCreate, GroupOut, MemberOut
+from app.schemas.expenses import ExpenseOut
 from app.services.common_service import require_group_member
+from app.services.expense_service import expense_to_out
 from app.utils.mongo_ids import oid, sid
+from app.utils.notify import notify_users
 
 router = APIRouter(prefix="/groups", tags=["groups"])
 
@@ -48,6 +53,53 @@ def list_my_groups(db: Database = Depends(get_db), current_user=Depends(get_curr
     me_oid = oid(current_user["id"])
     rows = db["groups"].find({"member_ids": me_oid}).sort("_id", -1)
     return [group_to_out(group, db) for group in rows]
+
+
+@router.get("/{group_id}/expenses/pending", response_model=List[ExpenseOut])
+def list_pending_expenses_group(
+    group_id: str,
+    db: Database = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """
+    Return all expenses currently awaiting consensus approval in this group.
+    """
+    group_oid = oid(group_id)
+    me_oid = oid(current_user["id"])
+    require_group_member(db, group_oid, me_oid)
+
+    now = datetime.now(timezone.utc)
+
+    # Auto-expire stale pending expenses (mark them rejected)
+    stale_cursor = db["expenses"].find({
+        "group_id": group_oid,
+        "status": "pending",
+        "expires_at": {"$lt": now},
+    })
+    for stale in stale_cursor:
+        db["expenses"].update_one(
+            {"_id": stale["_id"]},
+            {"$set": {"status": "rejected", "rejection_reason": "expired"}},
+        )
+        notify_users(
+            db,
+            user_ids=[stale["paid_by"]],
+            notif_type="expense_expired",
+            group_id=group_oid,
+            data={
+                "expense_id": sid(stale["_id"]),
+                "title": stale["title"],
+                "amount_minor": int(stale["amount_minor"]),
+            },
+        )
+
+    # Return live pending expenses
+    docs = list(
+        db["expenses"]
+        .find({"group_id": group_oid, "status": "pending"})
+        .sort([("_id", -1)])
+    )
+    return [expense_to_out(e) for e in docs]
 
 
 @router.get("/{group_id}", response_model=GroupOut)

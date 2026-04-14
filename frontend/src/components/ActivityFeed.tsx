@@ -23,7 +23,7 @@ const icons = {
 };
 
 export function ActivityFeed({ activities, className, ...props }: ActivityFeedProps) {
-  if (!activities.length) {
+  if (!activities || !Array.isArray(activities) || activities.length === 0) {
     return (
       <div className={cn("glass border border-border-soft rounded-[20px] p-8 text-center", className)}>
         <p className="text-secondary">No activity to show.</p>
@@ -52,7 +52,7 @@ export function ActivityFeed({ activities, className, ...props }: ActivityFeedPr
               };
             }
 
-            return icons[activity.type];
+            return icons[activity.type] || icons.info;
           })();
 
           const Icon = config.icon;

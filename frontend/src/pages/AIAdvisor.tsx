@@ -178,7 +178,6 @@ export default function AIAdvisor() {
             </div>
           )}
         </div>
-        </div>
 
         {/* Chat Panel */}
         <div className="flex flex-col glass border border-border-soft rounded-2xl h-[600px]">

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Pencil, Trash2, Target, TrendingUp, AlertTriangle, CheckCircle2, X, Loader2 } from 'lucide-react';
 import { budgetsApi, Budget as BudgetType } from '../api/budgetsApi';
-import { toast } from 'react-hot-toast';
+import { useToast } from '../context/ToastContext';
 import { useAnalytics } from '../hooks/useExpenses';
 
 // Budget stored locally since backend doesn't have a budget endpoint yet
@@ -27,6 +27,7 @@ function categoryInfo(key: string) {
 // Removed legacy storage functions
 
 export default function Budget() {
+  const toast = useToast();
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
