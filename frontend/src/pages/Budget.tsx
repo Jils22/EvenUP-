@@ -126,7 +126,7 @@ export default function Budget() {
         </div>
         <button
           onClick={openNewForm}
-          className="flex items-center gap-2 py-2.5 px-5 rounded-xl bg-gradient-to-r from-primary to-purple-600 text-white font-semibold shadow-[0_0_20px_rgba(192,143,245,0.3)] hover:shadow-[0_0_30px_rgba(192,143,245,0.5)] hover:scale-[1.02] transition-all"
+          className="flex items-center gap-2 py-2.5 px-5 rounded-xl bg-linear-to-r from-primary to-purple-600 text-white font-semibold shadow-[0_0_20px_rgba(192,143,245,0.3)] hover:shadow-[0_0_30px_rgba(192,143,245,0.5)] hover:scale-[1.02] transition-all"
         >
           <Plus className="w-4 h-4" /> Add Budget
         </button>
@@ -184,7 +184,7 @@ export default function Budget() {
           <p className="text-secondary mb-6 max-w-sm">Set a spending limit for each category to track where your money goes and stay on top of your finances.</p>
           <button
             onClick={openNewForm}
-            className="flex items-center gap-2 py-2.5 px-6 rounded-xl bg-gradient-to-r from-primary to-purple-600 text-white font-semibold"
+            className="flex items-center gap-2 py-2.5 px-6 rounded-xl bg-linear-to-r from-primary to-purple-600 text-white font-semibold"
           >
             <Plus className="w-4 h-4" /> Create Your First Budget
           </button>
@@ -324,7 +324,7 @@ export default function Budget() {
               <button
                 onClick={saveBudget}
                 disabled={!formLimit || parseFloat(formLimit) <= 0}
-                className="w-full py-3 rounded-xl bg-gradient-to-r from-primary to-purple-600 text-white font-semibold hover:opacity-90 transition disabled:opacity-40 disabled:cursor-not-allowed mt-1"
+                className="w-full py-3 rounded-xl bg-linear-to-r from-primary to-purple-600 text-white font-semibold hover:opacity-90 transition disabled:opacity-40 disabled:cursor-not-allowed mt-1"
               >
                 {editingId ? 'Save Changes' : 'Create Budget'}
               </button>

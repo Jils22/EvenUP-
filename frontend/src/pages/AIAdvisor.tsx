@@ -96,7 +96,7 @@ export default function AIAdvisor() {
     <div className="space-y-8 pb-10">
       {/* Header */}
       <div className="flex items-center gap-4 border-b border-border-soft pb-6">
-        <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-primary to-purple-700 flex items-center justify-center shadow-[0_0_30px_rgba(192,143,245,0.4)]">
+        <div className="w-12 h-12 rounded-2xl bg-linear-to-br from-primary to-purple-700 flex items-center justify-center shadow-[0_0_30px_rgba(192,143,245,0.4)]">
           <Brain className="w-6 h-6 text-white" />
         </div>
         <div>
@@ -167,7 +167,7 @@ export default function AIAdvisor() {
                       </div>
                       <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
                         <div
-                          className="h-full rounded-full bg-gradient-to-r from-primary to-purple-500 transition-all duration-700"
+                          className="h-full rounded-full bg-linear-to-r from-primary to-purple-500 transition-all duration-700"
                           style={{ width: `${pct}%` }}
                         />
                       </div>
@@ -180,7 +180,7 @@ export default function AIAdvisor() {
         </div>
 
         {/* Chat Panel */}
-        <div className="flex flex-col glass border border-border-soft rounded-2xl h-[600px]">
+        <div className="flex flex-col glass border border-border-soft rounded-2xl h-150">
           {/* Chat Header */}
           <div className="flex items-center gap-3 p-4 border-b border-border-soft">
             <div className="relative">
