@@ -1,6 +1,10 @@
 import axios from 'axios';
 
-const API_BASE_URL = (import.meta.env.VITE_API_URL || 'https://evenup-busz.onrender.com/api').replace(/\/$/, '') + '/';
+let _base = import.meta.env.VITE_API_URL || 'https://evenup-busz.onrender.com/api';
+if (!_base.endsWith('/api') && !_base.endsWith('/api/')) {
+  _base = _base.replace(/\/$/, '') + '/api';
+}
+const API_BASE_URL = _base.replace(/\/$/, '') + '/';
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,

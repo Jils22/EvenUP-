@@ -30,7 +30,11 @@ export default function Login() {
       loginBody.set('password', password);
 
       // Use raw axios to bypass any global apiClient / interceptor conflicts for this specific form-data call
-      const API_BASE = import.meta.env.VITE_API_URL || 'https://evenup-busz.onrender.com/api';
+      let API_BASE = import.meta.env.VITE_API_URL || 'https://evenup-busz.onrender.com/api';
+      if (!API_BASE.endsWith('/api') && !API_BASE.endsWith('/api/')) {
+        API_BASE = API_BASE.replace(/\/$/, '') + '/api';
+      }
+      API_BASE = API_BASE.replace(/\/$/, ''); // Remove trailing slash if any
       const res = await axios.post(`${API_BASE}/auth/login`, loginBody, {
         headers: { 
           'Content-Type': 'application/x-www-form-urlencoded',
