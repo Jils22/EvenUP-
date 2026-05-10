@@ -30,7 +30,7 @@ export default function Login() {
       loginBody.set('password', password);
 
       // Use raw axios to bypass any global apiClient / interceptor conflicts for this specific form-data call
-      const API_BASE = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
+      const API_BASE = import.meta.env.VITE_API_URL || 'https://evenup-busz.onrender.com/api';
       const res = await axios.post(`${API_BASE}/auth/login`, loginBody, {
         headers: { 
           'Content-Type': 'application/x-www-form-urlencoded',
