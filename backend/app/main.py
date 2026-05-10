@@ -54,9 +54,19 @@ app.add_middleware(
 async def global_exception_handler(request: Request, exc: Exception):
     logger.error(f"Global error caught: {exc}")
     logger.error(traceback.format_exc())
+    
+    # Manually add CORS headers to ensure the browser can see the 500 error detail
+    origin = request.headers.get("origin")
+    headers = {}
+    if origin:
+        # Simple check or just reflect origin if it matches your criteria
+        headers["Access-Control-Allow-Origin"] = origin
+        headers["Access-Control-Allow-Credentials"] = "true"
+
     return JSONResponse(
         status_code=500,
         content={"message": "Internal Server Error", "detail": str(exc)},
+        headers=headers
     )
 
 # ── API Router Structure ─────────────────────────────────────────────────────
