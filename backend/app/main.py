@@ -1,6 +1,7 @@
 from fastapi import FastAPI, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
+from core.config import settings
 from app.db.mongo import close_client, get_database, ping_database
 
 from app.routes.auth import router as auth_router
