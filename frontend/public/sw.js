@@ -49,6 +49,9 @@ self.addEventListener('fetch', (event) => {
   // Skip non-GET requests
   if (request.method !== 'GET') return;
 
+  // Skip unsupported schemes (e.g. chrome-extension://) so the service worker does not cache them
+  if (!['http:', 'https:'].includes(url.protocol)) return;
+
   // 1. Navigation Fallback: Handle SPA routing
   // If this is a navigation request (loading a page), try network first, then cache
   if (request.mode === 'navigate') {
