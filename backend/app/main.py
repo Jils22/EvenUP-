@@ -29,6 +29,8 @@ app = FastAPI(title=settings.APP_NAME)
 origins = [
     "https://evenup-finance.netlify.app",
     "https://agent-6a009828871b3a9c126cf72f--evenup-finance.netlify.app",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
 ]
 
 app.add_middleware(
