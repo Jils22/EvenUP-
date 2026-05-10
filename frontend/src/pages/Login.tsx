@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Eye, EyeOff, Loader2, Zap } from 'lucide-react';
-import { apiClient } from '../api/client';
 import axios from 'axios';
 
 export default function Login() {
@@ -17,7 +16,7 @@ export default function Login() {
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    
+
     if (!email.trim()) { setError('Please enter your email'); return; }
     if (!password) { setError('Please enter your password'); return; }
 
@@ -36,7 +35,7 @@ export default function Login() {
       }
       API_BASE = API_BASE.replace(/\/$/, ''); // Remove trailing slash if any
       const res = await axios.post(`${API_BASE}/auth/login`, loginBody, {
-        headers: { 
+        headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
           'Accept': 'application/json'
         }
