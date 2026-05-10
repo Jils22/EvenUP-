@@ -27,6 +27,7 @@ from .routes.budgets import router as budgets_router
 app = FastAPI(title=settings.APP_NAME)
 
 origins = [
+    "https://evenup-finance.netlify.app",
     "https://agent-6a009828871b3a9c126cf72f--evenup-finance.netlify.app",
 ]
 
