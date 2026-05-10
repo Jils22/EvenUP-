@@ -40,7 +40,7 @@ const expensesApi = expensesApi_raw;
 import ActivityFeed from "../components/ActivityFeed";
 import ErrorBoundary from "../components/ErrorBoundary";
 import { cn } from "../lib/utils";
-import "./group.css";
+import "./Group.css";
 
 const isValidObjectId = (id) => /^[0-9a-fA-F]{24}$/.test(id);
 
