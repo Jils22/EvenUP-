@@ -2,9 +2,9 @@ from fastapi import Depends, HTTPException, status
 from jose import JWTError
 from pymongo.database import Database
 
-from app.core.security import decode_access_token
-from app.db.deps import get_db
-from app.utils.mongo_ids import oid, sid
+from .security import decode_access_token
+from ..db.deps import get_db
+from ..utils.mongo_ids import oid, sid
 
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 

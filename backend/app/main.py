@@ -1,28 +1,27 @@
 from fastapi import FastAPI, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
-from app.core.config import settings
-from core.config import settings
-from app.db.mongo import close_client, get_database, ping_database
+from .core.config import settings
+from .db.mongo import close_client, get_database, ping_database
 
-from app.routes.auth import router as auth_router
-from app.routes.users import router as user_router
-from app.routes.groups import router as groups_router
-from app.routes.expenses import router as expenses_router
-from app.routes.balances import router as balances_router
-from app.routes.settlements import router as settlements_router
-from app.routes.activity import router as activity_router
-from app.routes.debts import router as debts_router
-from app.routes.comments import router as comments_router
-from app.routes.files import router as files_router
-from app.routes.invites import router as invites_router
-from app.routes.notifications import router as notifications_router
-from app.routes.export import router as export_router
-from app.routes.badges import router as badges_router
-from app.routes.recurring import router as recurring_router
-from app.routes.shopping import router as shopping_router
-from app.routes.ai import router as ai_router
-from app.routes.expenses_direct import router as expenses_direct_router
-from app.routes.budgets import router as budgets_router
+from .routes.auth import router as auth_router
+from .routes.users import router as user_router
+from .routes.groups import router as groups_router
+from .routes.expenses import router as expenses_router
+from .routes.balances import router as balances_router
+from .routes.settlements import router as settlements_router
+from .routes.activity import router as activity_router
+from .routes.debts import router as debts_router
+from .routes.comments import router as comments_router
+from .routes.files import router as files_router
+from .routes.invites import router as invites_router
+from .routes.notifications import router as notifications_router
+from .routes.export import router as export_router
+from .routes.badges import router as badges_router
+from .routes.recurring import router as recurring_router
+from .routes.shopping import router as shopping_router
+from .routes.ai import router as ai_router
+from .routes.expenses_direct import router as expenses_direct_router
+from .routes.budgets import router as budgets_router
 
 
 app = FastAPI(title=settings.APP_NAME)

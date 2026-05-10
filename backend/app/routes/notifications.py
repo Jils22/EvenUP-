@@ -6,10 +6,10 @@ from typing import List
 from fastapi import APIRouter, Depends
 from pymongo.database import Database
 
-from app.core.auth import get_current_user
-from app.db.deps import get_db
-from app.schemas.notifications import NotificationOut
-from app.utils.mongo_ids import oid, sid, sid_or_none
+from ..core.auth import get_current_user
+from ..db.deps import get_db
+from ..schemas.notifications import NotificationOut
+from ..utils.mongo_ids import oid, sid, sid_or_none
 
 router = APIRouter(tags=["notifications"])
 

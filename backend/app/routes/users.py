@@ -3,11 +3,11 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from passlib.context import CryptContext
-from app.core.auth import get_current_user
-from app.db.deps import get_db
-from app.services.balance_service import calculate_group_balances
-from app.utils.mongo_ids import oid, sid
-from app.services.expense_service import expense_to_out
+from ..core.auth import get_current_user
+from ..db.deps import get_db
+from ..services.balance_service import calculate_group_balances
+from ..utils.mongo_ids import oid, sid
+from ..services.expense_service import expense_to_out
 
 router = APIRouter(prefix="/users", tags=["users"])
 pwd_ctx = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -203,4 +203,4 @@ def my_analytics(db=Depends(get_db), current_user=Depends(get_current_user)):
         "category_data": category_data,
         "total_spend_minor": total_spend,
         "trend_data": trend_data,
-    }
+    }

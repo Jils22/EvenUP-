@@ -5,11 +5,11 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException
 from pymongo.database import Database
 
-from app.core.auth import get_current_user
-from app.db.deps import get_db
-from app.schemas.activity import ActivityItemOut, ActivityListOut
-from app.services.common_service import require_group_member
-from app.utils.mongo_ids import oid, sid_or_none, sid
+from ..core.auth import get_current_user
+from ..db.deps import get_db
+from ..schemas.activity import ActivityItemOut, ActivityListOut
+from ..services.common_service import require_group_member
+from ..utils.mongo_ids import oid, sid_or_none, sid
 
 router = APIRouter(prefix="/groups/{group_id}", tags=["activity"])
 

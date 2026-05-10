@@ -2,11 +2,11 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends
 
-from app.core.auth import get_current_user
-from app.db.deps import get_db
-from app.services.balance_service import calculate_group_balances
-from app.services.common_service import require_group_member
-from app.utils.mongo_ids import oid
+from ..core.auth import get_current_user
+from ..db.deps import get_db
+from ..services.balance_service import calculate_group_balances
+from ..services.common_service import require_group_member
+from ..utils.mongo_ids import oid
 
 router = APIRouter(prefix="/groups/{group_id}", tags=["debts"])
 

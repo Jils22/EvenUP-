@@ -8,11 +8,11 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from pymongo.database import Database
 
-from app.core.auth import get_current_user
-from app.db.deps import get_db
-from app.schemas.expenses import ExpenseOut
-from app.services.common_service import require_group_member
-from app.utils.mongo_ids import oid
+from ..core.auth import get_current_user
+from ..db.deps import get_db
+from ..schemas.expenses import ExpenseOut
+from ..services.common_service import require_group_member
+from ..utils.mongo_ids import oid
 
 router = APIRouter(tags=["export"])
 

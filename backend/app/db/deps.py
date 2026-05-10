@@ -1,6 +1,6 @@
 from pymongo.database import Database
 
-from app.db.mongo import get_database
+from .mongo import get_database
 
 
 def get_db() -> Database:

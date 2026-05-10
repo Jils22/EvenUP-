@@ -4,7 +4,7 @@ from typing import Dict, List
 
 from bson import ObjectId
 
-from app.utils.mongo_ids import sid
+from ..utils.mongo_ids import sid
 
 
 def calculate_group_balances(db, group_oid: ObjectId, member_oids: List[ObjectId]) -> Dict[str, object]:

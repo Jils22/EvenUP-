@@ -1,11 +1,11 @@
 from __future__ import annotations
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException
-from app.core.auth import get_current_user
-from app.db.deps import get_db
-from app.schemas.expenses import ExpenseOut
-from app.services.expense_service import expense_to_out
-from app.utils.mongo_ids import oid, sid
+from ..core.auth import get_current_user
+from ..db.deps import get_db
+from ..schemas.expenses import ExpenseOut
+from ..services.expense_service import expense_to_out
+from ..utils.mongo_ids import oid, sid
 
 router = APIRouter(prefix="/expenses", tags=["expenses"])
 

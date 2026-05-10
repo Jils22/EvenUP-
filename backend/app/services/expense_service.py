@@ -7,18 +7,18 @@ from typing import Any, Dict, List
 from bson import ObjectId
 from fastapi import HTTPException
 
-from app.schemas.expenses import ExpenseCreate, ExpenseOut, ExpenseUpdate
-from app.services.common_service import (
+from ..schemas.expenses import ExpenseCreate, ExpenseOut, ExpenseUpdate
+from .common_service import (
     ensure_all_are_members,
     ensure_unique_oids,
     money_to_minor,
     require_expense_in_group,
     require_group_member,
 )
-from app.utils.activity_log import log_activity
-from app.utils.audit import log_audit
-from app.utils.mongo_ids import oid, sid
-from app.utils.notify import notify_users
+from ..utils.activity_log import log_activity
+from ..utils.audit import log_audit
+from ..utils.mongo_ids import oid, sid
+from ..utils.notify import notify_users
 
 
 def build_equal_splits(amount_minor: int, participants: List[ObjectId]) -> List[Dict[str, Any]]:
@@ -593,4 +593,4 @@ def withdraw_expense_service(db, group_id: str, expense_id: str, current_user: d
         raise HTTPException(status_code=400, detail="Can only withdraw pending expenses")
 
     db["expenses"].delete_one({"_id": expense_oid})
-    return {"ok": True}
+    return {"ok": True}

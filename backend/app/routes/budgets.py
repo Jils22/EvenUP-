@@ -1,10 +1,10 @@
 from __future__ import annotations
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
-from app.core.auth import get_current_user
-from app.db.deps import get_db
-from app.schemas.budgets import BudgetCreate, BudgetOut, BudgetUpdate
-from app.utils.mongo_ids import oid, sid
+from ..core.auth import get_current_user
+from ..db.deps import get_db
+from ..schemas.budgets import BudgetCreate, BudgetOut, BudgetUpdate
+from ..utils.mongo_ids import oid, sid
 from datetime import datetime, timezone
 
 router = APIRouter(prefix="/budgets", tags=["budgets"])

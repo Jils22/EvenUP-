@@ -5,10 +5,10 @@ from fastapi.security import OAuth2PasswordRequestForm
 from pymongo.database import Database
 from pymongo.errors import DuplicateKeyError
 
-from app.core.auth import get_current_user
-from app.core.security import create_access_token, hash_password, verify_password
-from app.db.deps import get_db
-from app.schemas.auth import AuthResponse, RegisterRequest, UserResponse
+from ..core.auth import get_current_user
+from ..core.security import create_access_token, hash_password, verify_password
+from ..db.deps import get_db
+from ..schemas.auth import AuthResponse, RegisterRequest, UserResponse
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 

@@ -3,9 +3,9 @@ from __future__ import annotations
 from datetime import datetime, timezone, timedelta
 from fastapi import APIRouter, Depends
 
-from app.core.auth import get_current_user
-from app.db.deps import get_db
-from app.utils.mongo_ids import oid, sid
+from ..core.auth import get_current_user
+from ..db.deps import get_db
+from ..utils.mongo_ids import oid, sid
 
 router = APIRouter(prefix="/users/me/badges", tags=["badges"])
 

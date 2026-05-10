@@ -2,17 +2,17 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Response, status
 
-from app.core.auth import get_current_user
-from app.db.deps import get_db
-from app.schemas.settlements import SettlementCreate, SettlementOut, SettlementUpdate
-from app.services.common_service import require_group_member
-from app.services.settlement_service import (
+from ..core.auth import get_current_user
+from ..db.deps import get_db
+from ..schemas.settlements import SettlementCreate, SettlementOut, SettlementUpdate
+from ..services.common_service import require_group_member
+from ..services.settlement_service import (
     create_settlement_service,
     delete_settlement_service,
     settlement_to_out,
     update_settlement_service,
 )
-from app.utils.mongo_ids import oid
+from ..utils.mongo_ids import oid
 
 router = APIRouter(prefix="/groups/{group_id}/settlements", tags=["settlements"])
 

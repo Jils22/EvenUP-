@@ -6,7 +6,7 @@ from typing import Iterable, List
 from bson import ObjectId
 from fastapi import HTTPException
 
-from app.utils.mongo_ids import oid
+from ..utils.mongo_ids import oid
 
 MONEY_2DP = Decimal("0.01")
 

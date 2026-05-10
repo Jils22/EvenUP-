@@ -4,11 +4,11 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from pymongo.database import Database
 
-from app.core.auth import get_current_user
-from app.db.deps import get_db
-from app.schemas.expenses import ExpenseCreate, ExpenseOut, ExpenseUpdate
-from app.services.common_service import require_expense_in_group, require_group_member
-from app.services.expense_service import (
+from ..core.auth import get_current_user
+from ..db.deps import get_db
+from ..schemas.expenses import ExpenseCreate, ExpenseOut, ExpenseUpdate
+from ..services.common_service import require_expense_in_group, require_group_member
+from ..services.expense_service import (
     create_expense_service,
     delete_expense_service,
     expense_to_out,
@@ -17,8 +17,8 @@ from app.services.expense_service import (
     reject_expense_service,
     withdraw_expense_service,
 )
-from app.utils.mongo_ids import oid, sid
-from app.utils.notify import notify_users
+from ..utils.mongo_ids import oid, sid
+from ..utils.notify import notify_users
 
 router = APIRouter(prefix="/groups/{group_id}", tags=["expenses"])
 
